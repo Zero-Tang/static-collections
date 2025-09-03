@@ -2,5 +2,13 @@
 name = "static-collections"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+description = "Implementations of fixed-capacity collection types."
+homepage = "https://github.com/Zero-Tang/static-collections"
+repository = "https://github.com/Zero-Tang/static-collections"
+readme = "readme.md"
+keywords = ["no_std"]
+categories = ["no-std","no-std::no-alloc"]
+exclude = [".gitignore","license.txt"]
 
 [dependencies]
