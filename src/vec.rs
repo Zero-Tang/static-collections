@@ -36,6 +36,20 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 		}
 	}
 
+	/// Constructs a static-vector from slice `contents`.
+	/// 
+	/// Please use `vec_static!` macro instead.
+	pub const fn from_slice(contents:&[T])->Self
+	{
+		let mut v=Self::new();
+		v.length=contents.len();
+		unsafe
+		{
+			ptr::copy_nonoverlapping(contents.as_ptr(),v.as_mut_ptr(),v.length);
+		}
+		v
+	}
+
 	pub const fn as_slice(&self)->&[T]
 	{
 		unsafe
@@ -258,4 +272,31 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	{
 		N
 	}
+}
+
+/// The `vec_static!` macro helps building a static-vector easily,
+/// similar to the `vec!` macro in `std`/`alloc` crate.
+/// 
+/// # Example
+/// ```
+/// use static_collections::{vec_static,vec::StaticVec};
+/// let a:StaticVec<12,u64>=vec_static![4;7];
+/// assert_eq!(a.as_slice(),&[4;7]);
+/// let b:StaticVec<16,u32>=vec_static![1,2,3,4,5,6,7,8];
+/// assert_eq!(b.as_slice(),&[1,2,3,4,5,6,7,8]);
+/// ```
+#[macro_export] macro_rules! vec_static
+{
+	()=>
+	(
+		$crate::vec::StaticVec::new()
+	);
+	($elem:expr;$len:expr)=>
+	(
+		$crate::vec::StaticVec::from_slice(&[$elem;$len])
+	);
+	($($x:expr),+$(,)?)=>
+	(
+		$crate::vec::StaticVec::from_slice(&[$($x),+])
+	);
 }
