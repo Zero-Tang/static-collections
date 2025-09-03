@@ -9,3 +9,9 @@ pub mod string;
 /// 
 /// The module contains the `RefBitmap` type.
 pub mod bitmap;
+
+/// A growable but fixed-capacity array type, written as
+/// `StaticVec<T>`, short for "static vector".
+/// 
+/// This module contains the `StaticVec` type.
+pub mod vec;
