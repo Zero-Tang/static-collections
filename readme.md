@@ -10,7 +10,7 @@ The `StaticVec<N,T>` type can be used to put a dynamic-length array on stack and
 
 ## `RefBitmap<N>` type
 The `RefBitmap<N>` is a ZST type that can be used to reference a bitmap with `N` bits. \
-For x86_64 targets, bitmap operations are accelerated by special bit instructions (e.g.: `bt` instruction).
+For x86 (including 32-bit and 64-bit) targets, bitmap operations are accelerated by special bit instructions (e.g.: `bt` instruction).
 
 ## Other types
 I am no algorithm-expert. Useful data-structures in [`alloc::collections`](https://doc.rust-lang.org/alloc/collections/index.html) (e.g.: `BTreeMap`) module will not be implemented here for now. \

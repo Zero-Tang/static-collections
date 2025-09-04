@@ -2,6 +2,8 @@
 use core::fmt;
 #[cfg(target_arch="x86_64")]
 use core::arch::{asm, x86_64::{_bittest64,_bittestandcomplement64,_bittestandreset64,_bittestandset64}};
+#[cfg(target_arch="x86")]
+use core::arch::{asm, x86::{_bittest,_bittestandcomplement,_bittestandreset,_bittestandset}};
 
 #[derive(PartialEq, Debug)]
 pub struct OutOfBitmapError
@@ -91,7 +93,16 @@ impl<const N:usize> RefBitmap<N>
 					Ok(_bittest64(bmp,position as i64)!=0)
 				}
 			}
-			#[cfg(not(target_arch="x86_64"))]
+			#[cfg(target_arch="x86")]
+			{
+				// In x86, use the 32-bit `bit` instruction.
+				let bmp:*const i32=(&raw const *self).cast();
+				unsafe
+				{
+					Ok(_bittest(bmp,position as i32)!=0)
+				}
+			}
+			#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 			{
 				// Unknown CPU architecture. Use the generic method.
 				let bmp:*const u32=(&raw const *self).cast();
@@ -134,7 +145,16 @@ impl<const N:usize> RefBitmap<N>
 					Ok(_bittestandset64(bmp,position as i64)!=0)
 				}
 			}
-			#[cfg(not(target_arch="x86_64"))]
+			#[cfg(target_arch="x86")]
+			{
+				// In x86, use the 32-bit `bit` instruction.
+				let bmp:*mut i32=(&raw mut *self).cast();
+				unsafe
+				{
+					Ok(_bittestandset(bmp,position as i32)!=0)
+				}
+			}
+			#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 			{
 				// Unknown CPU architecture. Use the generic method.
 				let bmp:*mut u32=(&raw mut *self).cast();
@@ -180,7 +200,16 @@ impl<const N:usize> RefBitmap<N>
 					Ok(_bittestandreset64(bmp,position as i64)!=0)
 				}
 			}
-			#[cfg(not(target_arch="x86_64"))]
+			#[cfg(target_arch="x86")]
+			{
+				// In x86, use the 32-bit `bit` instruction.
+				let bmp:*mut i32=(&raw mut *self).cast();
+				unsafe
+				{
+					Ok(_bittestandreset(bmp,position as i32)!=0)
+				}
+			}
+			#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 			{
 				// Unknown CPU architecture. Use the generic method.
 				let bmp:*mut u32=(&raw mut *self).cast();
@@ -226,7 +255,16 @@ impl<const N:usize> RefBitmap<N>
 					Ok(_bittestandcomplement64(bmp,position as i64)!=0)
 				}
 			}
-			#[cfg(not(target_arch="x86_64"))]
+			#[cfg(target_arch="x86")]
+			{
+				// In x86, use the 32-bit `bit` instruction.
+				let bmp:*mut i32=(&raw mut *self).cast();
+				unsafe
+				{
+					Ok(_bittestandcomplement(bmp,position as i32)!=0)
+				}
+			}
+			#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 			{
 				// Unknown CPU architecture. Use the generic method.
 				let bmp:*mut u32=(&raw mut *self).cast();
@@ -281,7 +319,23 @@ impl<const N:usize> RefBitmap<N>
 					}
 				}
 			}
-			#[cfg(not(target_arch="x86_64"))]
+			#[cfg(target_arch="x86")]
+			{
+				// In x86, use the 32-bit `bit` instruction.
+				let bmp:*mut i32=(&raw mut *self).cast();
+				unsafe
+				{
+					if value
+					{
+						Ok(_bittestandset(bmp,position as i32)!=0)
+					}
+					else
+					{
+						Ok(_bittestandreset(bmp,position as i32)!=0)
+					}
+				}
+			}
+			#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 			{
 				// Unknown CPU architecture. Use the generic method.
 				let bmp:*mut u32=(&raw mut *self).cast();
@@ -345,7 +399,37 @@ impl<const N:usize> RefBitmap<N>
 			}
 			None
 		}
-		#[cfg(not(target_arch="x86_64"))]
+		#[cfg(target_arch="x86")]
+		{
+			let bmp:*const u32=(&raw const *self).cast();
+			let lim=(N>>5)+if (N&0x1F)!=0 {1} else {0};
+			for i in 0..lim
+			{
+				let j:u32;
+				let b:u8;
+				unsafe 
+				{
+					asm!
+					(
+						"mov {v},dword ptr [{p}]",
+						"not {v}",
+						"bsf {r},{v}",
+						"setz {zf}",
+						p=in(reg) bmp.add(i),
+						v=out(reg) _,
+						r=out(reg) j,
+						zf=out(reg_byte) b
+					);
+				}
+				if b==0
+				{
+					let pos=(i<<5)+j as usize;
+					return if pos<N {Some(pos)} else {None};
+				}
+			}
+			None
+		}
+		#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 		{
 			for i in 0..N
 			{
@@ -400,7 +484,34 @@ impl<const N:usize> RefBitmap<N>
 			}
 			None
 		}
-		#[cfg(not(target_arch="x86_64"))]
+		#[cfg(target_arch="x86")]
+		{
+			let bmp:*const u32=(&raw const *self).cast();
+			let lim=(N>>5)+if (N&0x1F)!=0 {1} else {0};
+			for i in 0..lim
+			{
+				let j:u32;
+				let b:u8;
+				unsafe 
+				{
+					asm!
+					(
+						"bsf {r},dword ptr [{p}]",
+						"setz {zf}",
+						p=in(reg) bmp.add(i),
+						r=out(reg) j,
+						zf=out(reg_byte) b
+					);
+				}
+				if b==0
+				{
+					let pos=(i<<5)+j as usize;
+					return if pos<N {Some(pos)} else {None};
+				}
+			}
+			None
+		}
+		#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 		{
 			for i in 0..N
 			{
@@ -456,7 +567,37 @@ impl<const N:usize> RefBitmap<N>
 			}
 			None
 		}
-		#[cfg(not(target_arch="x86_64"))]
+		#[cfg(target_arch="x86")]
+		{
+			let bmp:*const u32=(&raw const *self).cast();
+			let lim=(N>>5)+if (N&0x1F)!=0 {1} else {0};
+			for i in (0..lim).rev()
+			{
+				let j:u32;
+				let b:u8;
+				unsafe 
+				{
+					asm!
+					(
+						"mov {v},dword ptr [{p}]",
+						"not {v}",
+						"bsr {r},{v}",
+						"setz {zf}",
+						p=in(reg) bmp.add(i),
+						v=out(reg) _,
+						r=out(reg) j,
+						zf=out(reg_byte) b
+					);
+				}
+				if b==0
+				{
+					let pos=(i<<5)+j as usize;
+					return if pos<N {Some(pos)} else {None};
+				}
+			}
+			None
+		}
+		#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 		{
 			for i in (0..N).rev()
 			{
@@ -511,7 +652,34 @@ impl<const N:usize> RefBitmap<N>
 			}
 			None
 		}
-		#[cfg(not(target_arch="x86_64"))]
+		#[cfg(target_arch="x86")]
+		{
+			let bmp:*const u32=(&raw const *self).cast();
+			let lim=(N>>5)+if (N&0x1F)!=0 {1} else {0};
+			for i in (0..lim).rev()
+			{
+				let j:u32;
+				let b:u8;
+				unsafe 
+				{
+					asm!
+					(
+						"bsr {r},dword ptr [{p}]",
+						"setz {zf}",
+						p=in(reg) bmp.add(i),
+						r=out(reg) j,
+						zf=out(reg_byte) b
+					);
+				}
+				if b==0
+				{
+					let pos=(i<<5)+j as usize;
+					return if pos<N {Some(pos)} else {None};
+				}
+			}
+			None
+		}
+		#[cfg(all(not(target_arch="x86_64"),not(target_arch="x86")))]
 		{
 			for i in (0..N).rev()
 			{
