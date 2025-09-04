@@ -2,6 +2,7 @@
 
 use core::{ptr, mem::MaybeUninit, slice};
 
+#[derive(Debug)]
 pub struct StaticVec<const N:usize,T:Sized>
 {
 	length:usize,
@@ -34,20 +35,6 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 			length:0,
 			buff:MaybeUninit::uninit()
 		}
-	}
-
-	/// Constructs a static-vector from slice `contents`.
-	/// 
-	/// Please use `vec_static!` macro instead.
-	pub const fn from_slice(contents:&[T])->Self
-	{
-		let mut v=Self::new();
-		v.length=contents.len();
-		unsafe
-		{
-			ptr::copy_nonoverlapping(contents.as_ptr(),v.as_mut_ptr(),v.length);
-		}
-		v
 	}
 
 	pub const fn as_slice(&self)->&[T]
@@ -255,7 +242,7 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	/// v.push(1);
 	/// assert_eq!(v.len(),1);
 	/// ```
-	pub fn len(&self)->usize
+	pub const fn len(&self)->usize
 	{
 		self.length
 	}
@@ -268,9 +255,42 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	/// let v:StaticVec<12,u64>=StaticVec::new();
 	/// assert_eq!(v.capacity(),12);
 	/// ```
-	pub fn capacity(&self)->usize
+	pub const fn capacity(&self)->usize
 	{
 		N
+	}
+
+	/// This routine is a helper routine that constructs a static-vector for the `vec_static!` macro. \
+	/// This routine assigns the `value` specified at location `index` in the static-vector.
+	/// 
+	/// # Safety
+	/// Do not use this routine on your own. This routine is only supposed to be called by `vec_static!` macro, \
+	/// and the `index` is allowed to go beyond the `self.len()` limit. That's why this routine is unsafe.
+	/// 
+	/// # Panic
+	/// If `index>=N`, internal assertion would fail.
+	pub const unsafe fn force_assign(&mut self,index:usize,value:T)
+	{
+		assert!(index<N);
+		unsafe
+		{
+			ptr::write(self.buff.assume_init_mut().as_mut_ptr().add(index),value);
+		}
+	}
+
+	/// This routine is a helper routine that constructs a static-vector for the `vec_static!` macro. \
+	/// This routine resizes the static vector with specified length.
+	/// 
+	/// # Safety
+	/// Do not use this routine on your own. This routine is only supposed to be called by `vec_static!` macro. \
+	/// If `index>self.length`, the static-vector may end with undefined contents.
+	/// 
+	/// # Panic
+	/// If `length>N`, internal assertion would fail.
+	pub const unsafe fn force_resize(&mut self,length:usize)
+	{
+		assert!(length<=N);
+		self.length=length;
 	}
 }
 
@@ -293,10 +313,52 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	);
 	($elem:expr;$len:expr)=>
 	(
-		$crate::vec::StaticVec::from_slice(&[$elem;$len])
+		{
+			let mut v=StaticVec::new();
+			unsafe
+			{
+				let mut i:usize=0;
+				while i<$len
+				{
+					v.force_assign(i,$elem);
+					i+=1;
+				}
+				v.force_resize($len);
+			}
+			v
+		}
 	);
 	($($x:expr),+$(,)?)=>
 	(
-		$crate::vec::StaticVec::from_slice(&[$($x),+])
+		{
+			let mut v=StaticVec::new();
+			let mut index:usize=0;
+			unsafe
+			{
+				$(
+					{
+						v.force_assign(index,$x);
+						index+=1;
+					}
+				)*
+				v.force_resize(index);
+			}
+			v
+		}
 	);
+}
+
+#[cfg(test)] mod test
+{
+	extern crate std;
+
+	use std::println;
+	use crate::vec::StaticVec;
+
+	#[should_panic]
+	#[test] fn vec_macro_overflow()
+	{
+		let x:StaticVec<12,u64>=vec_static![1234;16];
+		println!("{x:?}")
+	}
 }
