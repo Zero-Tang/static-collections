@@ -15,3 +15,11 @@ pub mod bitmap;
 /// 
 /// This module contains the `StaticVec` type.
 pub mod vec;
+
+/// Utilities related to FFI bindings.
+/// 
+/// This module contains utilities to handle data across non-Rust interfaces,
+/// like other programming languages and the underlying operating system. It is
+/// mainly of use for FFI (Foreign Function Interface) bindings and code that
+/// needs to exchange C-like strings with other languages.
+pub mod ffi;

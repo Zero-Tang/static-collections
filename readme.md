@@ -5,6 +5,9 @@ It should be useful to create dynamic data structures on stack or global variabl
 ## `StaticString<N>` type
 The `StaticString<N>` type can be used to put a dynamic-length string on stack and/or global variable with maximum size of `N` bytes.
 
+## `StaticCString<N>` type
+The `StaticCString<N>` type can be used to put a dynamic-length null-terminated string on stack and/or global variable with maximum size of `N` bytes.
+
 ## `StaticVec<N,T>` type
 The `StaticVec<N,T>` type can be used to put a dynamic-length array on stack and/or global variable with maximum size of `N` elements.
 
