@@ -12,7 +12,7 @@ unsafe extern "C"
 	fn strncat(dest:*mut i8,src:*const i8,cch:usize)->*mut i8;
 	fn strncmp(s1:*const i8,s2:*const i8,cch:usize)->isize;
 	fn strncpy(dest:*mut i8,src:*const i8,cch:usize)->*mut i8;
-	fn strnlen(str:*const i8,cch:usize)->usize;
+	pub(crate) fn strnlen(str:*const i8,cch:usize)->usize;
 }
 
 /// A C-compatible, growable but fixed-capacity string. \

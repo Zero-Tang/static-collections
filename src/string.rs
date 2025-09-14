@@ -2,6 +2,8 @@
 
 use core::{fmt::{self, Debug, Display}, mem::MaybeUninit, ops::AddAssign, slice, str};
 
+use crate::ffi::c_str::strnlen;
+
 #[derive(Debug)]
 pub struct InsertError;
 
@@ -124,7 +126,7 @@ impl<const N:usize> StaticString<N>
 	pub fn push(&mut self,ch:char)->Result<(),InsertError>
 	{
 		let ch_len=ch.len_utf8();
-		if self.used+ch_len>=N
+		if self.used+ch_len>N
 		{
 			Err(InsertError)
 		}
@@ -148,7 +150,7 @@ impl<const N:usize> StaticString<N>
 	pub fn push_str(&mut self,string:&str)->Result<(),InsertError>
 	{
 		let str_len=string.len();
-		if self.used+str_len>=N
+		if self.used+str_len>N
 		{
 			Err(InsertError)
 		}
@@ -172,7 +174,7 @@ impl<const N:usize> StaticString<N>
 	pub fn insert(&mut self,index:usize,ch:char)->Result<(),InsertError>
 	{
 		let ch_len=ch.len_utf8();
-		if self.used+ch_len>=N
+		if self.used+ch_len>N
 		{
 			Err(InsertError)
 		}
@@ -199,7 +201,7 @@ impl<const N:usize> StaticString<N>
 	pub fn insert_str(&mut self,index:usize,string:&str)->Result<(),InsertError>
 	{
 		let str_len=string.len();
-		if self.used+str_len>=N
+		if self.used+str_len>N
 		{
 			Err(InsertError)
 		}
@@ -212,6 +214,20 @@ impl<const N:usize> StaticString<N>
 			self.used+=str_len;
 			Ok(())
 		}
+	}
+
+	/// Shortens this `StaticString` so that no null terminator is present in the string.
+	/// 
+	/// # Example
+	/// ```
+	/// use static_collections::string::StaticString;
+	/// let mut s:StaticString<64>=StaticString::from("Hello,\0World!");
+	/// s.truncate_to_nul();
+	/// assert_eq!(s.as_str(),"Hello,");
+	/// ```
+	pub fn truncate_to_nul(&mut self)
+	{
+		self.used=unsafe{strnlen(self.as_bytes().as_ptr().cast(),self.len())};
 	}
 
 	/// Shortens this `StaticString` to the specified `new_len`.
