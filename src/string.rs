@@ -1,6 +1,6 @@
 // The static-string module
 
-use core::{fmt::{self, Debug, Display}, mem::MaybeUninit, ops::AddAssign, slice, str};
+use core::{fmt::{self, Debug, Display}, mem::MaybeUninit, ops::{AddAssign, Deref, DerefMut}, slice, str};
 
 use crate::ffi::c_str::strnlen;
 
@@ -355,6 +355,24 @@ impl<const N:usize> StaticString<N>
 	#[inline(always)] pub fn clear(&mut self)
 	{
 		self.used=0;
+	}
+}
+
+impl<const N:usize> Deref for StaticString<N>
+{
+	type Target = str;
+
+	fn deref(&self) -> &Self::Target
+	{
+		self.as_str()
+	}
+}
+
+impl<const N:usize> DerefMut for StaticString<N>
+{
+	fn deref_mut(&mut self) -> &mut Self::Target
+	{
+		self.as_mut_str()
 	}
 }
 
