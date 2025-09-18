@@ -1,6 +1,6 @@
 // The static-vector module
 
-use core::{ptr, mem::MaybeUninit, slice};
+use core::{mem::MaybeUninit, ops::{Deref, DerefMut}, ptr, slice};
 
 #[derive(Debug)]
 pub struct StaticVec<const N:usize,T:Sized>
@@ -291,6 +291,24 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	{
 		assert!(length<=N);
 		self.length=length;
+	}
+}
+
+impl<const N:usize,T> Deref for StaticVec<N,T>
+{
+	type Target = [T];
+
+	fn deref(&self) -> &Self::Target
+	{
+		self.as_slice()
+	}
+}
+
+impl<const N:usize,T> DerefMut for StaticVec<N,T>
+{
+	fn deref_mut(&mut self) -> &mut Self::Target
+	{
+		self.as_mut_slice()
 	}
 }
 
