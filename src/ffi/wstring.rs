@@ -56,6 +56,22 @@ impl<const N:usize> StaticWString<N>
 		N
 	}
 
+	/// Checks if this string is empty.
+	/// 
+	/// # Example
+	/// ```
+	/// use static_collections::ffi::wstring::StaticWString;
+	/// let mut s:StaticWString<32>=StaticWString::new();
+	/// assert!(s.is_empty());
+	/// s.push_char('a');
+	/// s.push_char('😀');
+	/// assert_eq!(s.is_empty(),false);
+	/// ```
+	pub const fn is_empty(&self)->bool
+	{
+		self.len()==0
+	}
+
 	/// Returns an immutable slice of this string in `&[u16]` form.
 	/// 
 	/// # Example
@@ -172,7 +188,7 @@ impl<const N:usize> StaticWString<N>
 			self.internal.copy_within(copy_range,index+rsvd_size);
 			for (i,c) in u.iter().enumerate()
 			{
-				self[index+i]=*c;
+				self[index+i]= *c;
 			}
 		}
 	}

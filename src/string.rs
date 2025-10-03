@@ -1,8 +1,8 @@
 // The static-string module
 
-use core::{fmt::{self, Debug, Display}, mem::MaybeUninit, ops::{AddAssign, Deref, DerefMut}, slice, str};
+use core::{fmt::{self, Debug, Display}, ops::{AddAssign, Deref, DerefMut}, str};
 
-use crate::ffi::c_str::strnlen;
+use crate::{ffi::c_str::strnlen, vec::StaticVec};
 
 #[derive(Debug)]
 pub struct InsertError;
@@ -15,8 +15,7 @@ pub struct InsertError;
 /// - 4-byte: Emoji and rare symbols.
 pub struct StaticString<const N:usize>
 {
-	used:usize,
-	buff:MaybeUninit<[u8;N]>
+	internal:StaticVec<N,u8>
 }
 
 impl<const N:usize> Default for StaticString<N>
@@ -43,8 +42,7 @@ impl<const N:usize> StaticString<N>
 	{
 		Self
 		{
-			used:0,
-			buff:MaybeUninit::uninit()
+			internal:StaticVec::new()
 		}
 	}
 
@@ -58,10 +56,7 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	#[inline(always)] pub const fn as_bytes(&self)->&[u8]
 	{
-		unsafe
-		{
-			slice::from_raw_parts(self.buff.assume_init_ref().as_ptr(),self.used)
-		}
+		self.internal.as_slice()
 	}
 
 	/// Returns a mutable byte slice of this `StaticString`'s contents.
@@ -76,10 +71,7 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	#[inline(always)] pub const fn as_mut_bytes(&mut self)->&mut [u8]
 	{
-		unsafe
-		{
-			slice::from_raw_parts_mut(self.buff.assume_init_mut().as_mut_ptr(),self.used)
-		}
+		self.internal.as_mut_slice()
 	}
 
 	/// Returns a string slice of this `StaticString`'s contents.
@@ -126,14 +118,18 @@ impl<const N:usize> StaticString<N>
 	pub fn push(&mut self,ch:char)->Result<(),InsertError>
 	{
 		let ch_len=ch.len_utf8();
-		if self.used+ch_len>N
+		let insertion_index=self.len();
+		if insertion_index+ch_len>N
 		{
 			Err(InsertError)
 		}
 		else
 		{
-			ch.encode_utf8(unsafe{&mut self.buff.assume_init_mut()[self.used..]});
-			self.used+=ch_len;
+			unsafe
+			{
+				self.internal.force_resize(insertion_index+ch_len);
+			}
+			ch.encode_utf8(&mut self.internal[insertion_index..]);
 			Ok(())
 		}
 	}
@@ -150,14 +146,19 @@ impl<const N:usize> StaticString<N>
 	pub fn push_str(&mut self,string:&str)->Result<(),InsertError>
 	{
 		let str_len=string.len();
-		if self.used+str_len>N
+		let insertion_index=self.len();
+		if insertion_index+str_len>N
 		{
 			Err(InsertError)
 		}
-		else {
-			let dest_buff=unsafe{&mut self.buff.assume_init_mut()[self.used..self.used+str_len]};
+		else
+		{
+			unsafe
+			{
+				self.internal.force_resize(insertion_index+str_len);
+			}
+			let dest_buff=&mut self.internal[insertion_index..];
 			dest_buff.copy_from_slice(string.as_bytes());
-			self.used+=str_len;
 			Ok(())
 		}
 	}
@@ -174,17 +175,20 @@ impl<const N:usize> StaticString<N>
 	pub fn insert(&mut self,index:usize,ch:char)->Result<(),InsertError>
 	{
 		let ch_len=ch.len_utf8();
-		if self.used+ch_len>N
+		let old_end=self.len();
+		if old_end+ch_len>N
 		{
 			Err(InsertError)
 		}
 		else
 		{
 			// Move string contents.
-			let full_buff=unsafe{self.buff.assume_init_mut()};
-			full_buff.copy_within(index..self.used,index+ch_len);
-			ch.encode_utf8(&mut full_buff[index..index+ch_len]);
-			self.used+=ch_len;
+			unsafe
+			{
+				self.internal.force_resize(old_end+ch_len);
+			}
+			self.internal.copy_within(index..old_end,index+ch_len);
+			ch.encode_utf8(&mut self.internal[index..index+ch_len]);
 			Ok(())
 		}
 	}
@@ -201,17 +205,20 @@ impl<const N:usize> StaticString<N>
 	pub fn insert_str(&mut self,index:usize,string:&str)->Result<(),InsertError>
 	{
 		let str_len=string.len();
-		if self.used+str_len>N
+		let old_end=self.len();
+		if old_end+str_len>N
 		{
 			Err(InsertError)
 		}
 		else
 		{
 			// Move string contents.
-			let full_buff=unsafe{self.buff.assume_init_mut()};
-			full_buff.copy_within(index..self.used,index+str_len);
-			full_buff[index..index+str_len].copy_from_slice(string.as_bytes());
-			self.used+=str_len;
+			unsafe
+			{
+				self.internal.force_resize(old_end+str_len);
+			}
+			self.internal.copy_within(index..old_end,index+str_len);
+			self.internal[index..index+str_len].copy_from_slice(string.as_bytes());
 			Ok(())
 		}
 	}
@@ -227,7 +234,11 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	pub fn truncate_to_nul(&mut self)
 	{
-		self.used=unsafe{strnlen(self.as_bytes().as_ptr().cast(),self.len())};
+		unsafe
+		{
+			let new_size=strnlen(self.as_bytes().as_ptr().cast(),self.len());
+			self.internal.force_resize(new_size);
+		};
 	}
 
 	/// Shortens this `StaticString` to the specified `new_len`.
@@ -241,9 +252,12 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	pub fn truncate(&mut self,new_len:usize)
 	{
-		if new_len<=self.used
+		if new_len<=self.len()
 		{
-			self.used=new_len;
+			unsafe
+			{
+				self.internal.force_resize(new_len);
+			}
 			if str::from_utf8(self.as_bytes()).is_err()
 			{
 				panic!("The new length {new_len} does not lie on UTF-8 character boundary!");
@@ -268,7 +282,11 @@ impl<const N:usize> StaticString<N>
 		{
 			Some(c)=>
 			{
-				self.used-=c.len_utf8();
+				let new_size=self.len()-c.len_utf8();
+				unsafe
+				{
+					self.internal.force_resize(new_size);
+				}
 				Some(c)
 			}
 			None=>None
@@ -286,15 +304,17 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	pub fn remove(&mut self,index:usize)->char
 	{
-		let full_buff=unsafe{self.buff.assume_init_mut()};
-		match str::from_utf8(&full_buff[index..self.used])
+		match str::from_utf8(&self.internal[index..])
 		{
 			Ok(s)=>
 			{
 				let c=s.chars().nth(0).unwrap();
 				let ch_len=c.len_utf8();
-				full_buff.copy_within(index+ch_len..self.used,index);
-				self.used-=ch_len;
+				self.internal.copy_within(index+ch_len..,index);
+				unsafe
+				{
+					self.internal.force_resize(self.len()-ch_len);
+				}
 				c
 			}
 			Err(_)=>panic!("Index {index} does not lie on UTF-8 character boundary!")
@@ -311,7 +331,7 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	#[inline(always)] pub fn len(&self)->usize
 	{
-		self.used
+		self.internal.len()
 	}
 
 	/// Returns the capacity of this string in bytes.
@@ -354,7 +374,7 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	#[inline(always)] pub fn clear(&mut self)
 	{
-		self.used=0;
+		self.internal.clear();
 	}
 }
 
