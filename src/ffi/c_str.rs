@@ -18,7 +18,7 @@ unsafe extern "C"
 /// A C-compatible, growable but fixed-capacity string. \
 /// The exact encoding of the string depends on the target platform. \
 /// The `StaticCString` guarantees a null-terminator at the end, so the maximum length is 1 less than capacity.
-/// # Examples
+#[derive(Clone)]
 pub struct StaticCString<const N:usize>
 {
 	buffer:MaybeUninit<[i8;N]>

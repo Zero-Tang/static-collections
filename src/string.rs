@@ -13,6 +13,7 @@ pub struct InsertError;
 /// - 2-byte: Latin-based, Greek, Cyrillic, Hebrew, Armenian letters and Thai characters.
 /// - 3-byte: Chinese, Japanese and Korean characters.
 /// - 4-byte: Emoji and rare symbols.
+#[derive(Clone)]
 pub struct StaticString<const N:usize>
 {
 	internal:StaticVec<N,u8>

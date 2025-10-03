@@ -5,7 +5,7 @@ use core::{fmt, mem::MaybeUninit, ops::{Index, IndexMut}, slice::SliceIndex};
 use crate::vec::StaticVec;
 
 /// The `StaticWString` is a fixed-capacity UTF-16 string object.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct StaticWString<const N:usize>
 {
 	internal:StaticVec<N,u16>

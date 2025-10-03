@@ -9,6 +9,18 @@ pub struct StaticVec<const N:usize,T:Sized>
 	buff:MaybeUninit<[T;N]>
 }
 
+impl<const N:usize,T:Copy> Clone for StaticVec<N,T>
+{
+	fn clone(&self) -> Self
+	{
+		Self
+		{
+			length:self.length,
+			buff:self.buff.clone()
+		}
+	}
+}
+
 impl<const N:usize,T:Sized> Default for StaticVec<N,T>
 {
 	fn default() -> Self
