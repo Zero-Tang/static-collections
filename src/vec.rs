@@ -279,17 +279,18 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	}
 
 	/// This routine is a helper routine that constructs a static-vector for the `vec_static!` macro. \
-	/// This routine resizes the static vector with specified length.
+	/// This routine resizes the static vector with specified length. \
+	/// Should you wish to use `force_resize` method, read the `# Safety` and `# Panic` chapters.
 	/// 
 	/// # Safety
-	/// Do not use this routine on your own. This routine is only supposed to be called by `vec_static!` macro. \
-	/// If `index>self.length`, the static-vector may end with undefined contents.
+	/// If `index>self.length`, the static-vector may end with undefined contents. \
+	/// You should get rid of these undefined contents after you force resized this vector.
 	/// 
 	/// # Panic
 	/// If `length>N`, internal assertion would fail.
 	pub const unsafe fn force_resize(&mut self,length:usize)
 	{
-		assert!(length<=N);
+		assert!(length<=N,"The new length exceeds capacity!");
 		self.length=length;
 	}
 }

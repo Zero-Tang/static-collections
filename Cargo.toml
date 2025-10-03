@@ -12,3 +12,6 @@ categories = ["no-std","no-std::no-alloc"]
 exclude = [".gitignore","license.txt"]
 
 [dependencies]
+
+[dev-dependencies]
+utf16_lit = "2.0.2"
