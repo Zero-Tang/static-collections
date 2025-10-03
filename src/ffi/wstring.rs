@@ -281,6 +281,23 @@ impl<const M:usize,const N:usize> PartialOrd<[u16;M]> for StaticWString<N>
 	}
 }
 
+impl<const N:usize> fmt::Display for StaticWString<N>
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		use fmt::Write;
+		for c in char::decode_utf16(self.iter())
+		{
+			match c
+			{
+				Ok(c)=>f.write_char(c),
+				Err(_)=>f.write_char(char::REPLACEMENT_CHARACTER)
+			}?;
+		}
+		Ok(())
+	}
+}
+
 impl<const N:usize> fmt::Write for StaticWString<N>
 {
 	fn write_char(&mut self, c: char) -> fmt::Result
@@ -293,5 +310,77 @@ impl<const N:usize> fmt::Write for StaticWString<N>
 	{
 		self.push_str(s);
 		Ok(())
+	}
+}
+
+impl<'a,const N:usize> StaticWString<N>
+{
+	// Just to make sure `char::decode_utf16` can work without cloning the whole string.
+	fn iter(&'a self)->StaticWIter<'a,N>
+	{
+		StaticWIter
+		{
+			internal:StaticWIterator
+			{
+				index:0,
+				source:self
+			}
+		}
+	}
+}
+
+struct StaticWIterator<'a,const N:usize>
+{
+	index:usize,
+	source:&'a StaticWString<N>
+}
+
+impl<'a,const N:usize> Iterator for StaticWIterator<'a,N>
+{
+	type Item = u16;
+
+	fn next(&mut self) -> Option<Self::Item>
+	{
+		let i=self.index;
+		if i<self.source.len()
+		{
+			self.index+=1;
+			Some(self.source[i])
+		}
+		else
+		{
+			None
+		}
+	}
+}
+
+struct StaticWIter<'a,const N:usize>
+{
+	internal:StaticWIterator<'a,N>
+}
+
+impl<'a,const N:usize> IntoIterator for StaticWIter<'a,N>
+{
+	type IntoIter = StaticWIterator<'a,N>;
+	type Item = u16;
+
+	fn into_iter(self) -> Self::IntoIter
+	{
+		self.internal
+	}
+}
+
+#[cfg(test)]
+mod test
+{
+	extern crate std;
+	use std::format;
+	use super::StaticWString;
+
+	#[test] fn correct_fmt()
+	{
+		let s:StaticWString<32>=StaticWString::from("abcd魑魅魍魉1234😀🤣😅👍");
+		let ss=format!("This is {s}!");
+		assert_eq!(ss,"This is abcd魑魅魍魉1234😀🤣😅👍!");
 	}
 }
