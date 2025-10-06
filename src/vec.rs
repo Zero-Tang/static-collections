@@ -16,7 +16,7 @@ impl<const N:usize,T:Copy> Clone for StaticVec<N,T>
 		Self
 		{
 			length:self.length,
-			buff:self.buff.clone()
+			buff:self.buff
 		}
 	}
 }
@@ -391,5 +391,13 @@ impl<const N:usize,T> DerefMut for StaticVec<N,T>
 	{
 		let x:StaticVec<12,u64>=vec_static![1234;16];
 		println!("{x:?}")
+	}
+
+	#[test] fn clone()
+	{
+		let x:StaticVec<16,u64>=vec_static![1,2,3,4,5,6,7,8,9,10];
+		assert_eq!(x.len(),10);
+		let y=x.clone();
+		assert_eq!(*y,[1,2,3,4,5,6,7,8,9,10]);
 	}
 }
