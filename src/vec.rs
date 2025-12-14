@@ -3,7 +3,7 @@
 use core::{mem::MaybeUninit, ops::{Deref, DerefMut}, ptr, slice};
 
 #[derive(Debug)]
-pub struct StaticVec<const N:usize,T:Sized>
+pub struct StaticVec<const N:usize,T>
 {
 	length:usize,
 	buff:MaybeUninit<[T;N]>
@@ -21,7 +21,7 @@ impl<const N:usize,T:Copy> Clone for StaticVec<N,T>
 	}
 }
 
-impl<const N:usize,T:Sized> Default for StaticVec<N,T>
+impl<const N:usize,T> Default for StaticVec<N,T>
 {
 	fn default() -> Self
 	{
@@ -29,7 +29,7 @@ impl<const N:usize,T:Sized> Default for StaticVec<N,T>
 	}
 }
 
-impl<const N:usize,T:Sized> StaticVec<N,T>
+impl<const N:usize,T> StaticVec<N,T>
 {
 	/// Constructs a new, empty StaticVec<N,T>.
 	/// 
@@ -98,7 +98,9 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 		{
 			unsafe
 			{
-				self.buff.assume_init_mut()[self.length]=v;
+				let vector=self.buff.assume_init_mut();
+				// Use ptr::write to avoid `Drop` trait requirement.
+				ptr::write(&raw mut vector[self.length],v);
 			}
 			self.length+=1;
 		}
@@ -224,6 +226,11 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	/// ```
 	pub fn clear(&mut self)
 	{
+		for item in self.as_mut_slice()
+		{
+			// Force drop every item.
+			drop(unsafe{ptr::read(item)});
+		}
 		self.length=0;
 	}
 
@@ -304,6 +311,14 @@ impl<const N:usize,T:Sized> StaticVec<N,T>
 	{
 		assert!(length<=N,"The new length exceeds capacity!");
 		self.length=length;
+	}
+}
+
+impl<const N:usize,T> Drop for StaticVec<N,T>
+{
+	fn drop(&mut self)
+	{
+		self.clear();
 	}
 }
 
@@ -399,5 +414,39 @@ impl<const N:usize,T> DerefMut for StaticVec<N,T>
 		assert_eq!(x.len(),10);
 		let y=x.clone();
 		assert_eq!(*y,[1,2,3,4,5,6,7,8,9,10]);
+	}
+
+	#[test] fn drop()
+	{
+		use core::sync::atomic::{AtomicUsize,Ordering};
+
+		struct DropCounter<'a>
+		{
+			counter:&'a AtomicUsize
+		}
+
+		impl<'a> Drop for DropCounter<'a>
+		{
+			fn drop(&mut self)
+			{
+				self.counter.fetch_add(1,Ordering::SeqCst);
+			}
+		}
+
+		let drop_count:AtomicUsize=AtomicUsize::new(0);
+		{
+			let mut v:StaticVec<8,DropCounter>=StaticVec::new();
+			v.push(DropCounter{counter:&drop_count});
+			v.push(DropCounter{counter:&drop_count});
+			assert_eq!(drop_count.load(Ordering::SeqCst),0);
+			v.pop();
+			assert_eq!(drop_count.load(Ordering::SeqCst),1);
+			v.clear();
+			assert_eq!(drop_count.load(Ordering::SeqCst),2);
+			v.push(DropCounter{counter:&drop_count});
+			v.push(DropCounter{counter:&drop_count});
+			assert_eq!(drop_count.load(Ordering::SeqCst),2);
+		}
+		assert_eq!(drop_count.load(Ordering::SeqCst),4);
 	}
 }
