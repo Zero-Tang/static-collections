@@ -210,6 +210,11 @@ impl<const N:usize,T> StaticVec<N,T>
 	{
 		if new_len<self.length
 		{
+			// Force drop every item.
+			for item in &mut self[new_len..]
+			{
+				drop(unsafe{ptr::read(item)});
+			}
 			self.length=new_len;
 		}
 	}
@@ -447,7 +452,14 @@ impl<const N:usize,T> DerefMut for StaticVec<N,T>
 			v.push(DropCounter{counter:&drop_count});
 			v.push(DropCounter{counter:&drop_count});
 			assert_eq!(drop_count.load(Ordering::SeqCst),2);
+			v.push(DropCounter{counter:&drop_count});
+			v.push(DropCounter{counter:&drop_count});
+			v.push(DropCounter{counter:&drop_count});
+			assert_eq!(drop_count.load(Ordering::SeqCst),2);
+			assert_eq!(v.len(),5);
+			v.truncate(3);
+			assert_eq!(drop_count.load(Ordering::SeqCst),4);
 		}
-		assert_eq!(drop_count.load(Ordering::SeqCst),4);
+		assert_eq!(drop_count.load(Ordering::SeqCst),7);
 	}
 }
