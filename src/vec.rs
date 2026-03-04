@@ -113,9 +113,9 @@ impl<const N:usize,T> StaticVec<N,T>
 	/// use static_collections::vec::StaticVec;
 	/// let mut v:StaticVec<8,u64>=StaticVec::new();
 	/// v.push(1234);
-	/// assert_eq!(v.pop(),1234);
+	/// assert_eq!(v.pop(),Some(1234));
 	/// ```
-	pub fn pop(&mut self)->T
+	pub fn pop(&mut self)->Option<T>
 	{
 		if self.length>0
 		{
@@ -123,12 +123,12 @@ impl<const N:usize,T> StaticVec<N,T>
 			// Use unsafe codes to avoid `Copy` trait.
 			unsafe
 			{
-				ptr::read(self.as_ptr().add(self.length))
+				Some(ptr::read(self.as_ptr().add(self.length)))
 			}
 		}
 		else
 		{
-			panic!("popping a value from an empty static vector!");
+			None
 		}
 	}
 
@@ -167,26 +167,27 @@ impl<const N:usize,T> StaticVec<N,T>
 	/// v.push(1234);
 	/// v.push(4567);
 	/// v.push(7890);
-	/// assert_eq!(v.remove(1),4567);
-	/// assert_eq!(v.as_slice(),&[1234,7890]);
+	/// v.push(1234);
+	/// assert_eq!(v.remove(1),Some(4567));
+	/// assert_eq!(v.as_slice(),&[1234,7890,1234]);
 	/// ```
-	pub fn remove(&mut self,index:usize)->T
+	pub fn remove(&mut self,index:usize)->Option<T>
 	{
 		if self.length>index
 		{
-			// Use unsafe codes to avoid `Copy` trait.
+			// Use unsafe codes to avoid `Copy` and `Drop` trait.
 			unsafe
 			{
 				let p=self.as_mut_ptr().add(index);
 				let v=ptr::read(self.as_ptr().add(index));
 				ptr::copy(p.add(1),p,self.length-index-1);
 				self.length-=1;
-				v
+				Some(v)
 			}
 		}
 		else
 		{
-			panic!("removal index ({index}) is out of bound ({})!",self.length);
+			None
 		}
 	}
 
