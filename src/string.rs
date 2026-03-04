@@ -1,6 +1,6 @@
 // The static-string module
 
-use core::{fmt::{self, Debug, Display}, ops::{AddAssign, Deref, DerefMut}, str};
+use core::{char::DecodeUtf16Error, fmt::{self, Debug, Display}, ops::{AddAssign, Deref, DerefMut}, str};
 
 use crate::{ffi::c_str::strnlen, vec::StaticVec};
 
@@ -162,6 +162,186 @@ impl<const N:usize> StaticString<N>
 			dest_buff.copy_from_slice(string.as_bytes());
 			Ok(())
 		}
+	}
+
+	/// Decodes a native endian UTF-16-encoded vector `v` into this `StaticString<N>`.
+	/// Returns `Err(DecodeUtf16Error)` if `v` contains invalid UTF-16 characters.
+	/// 
+	/// # Examples
+	/// ```
+	/// use core::char::DecodeUtf16Error;
+	/// use static_collections::string::StaticString;
+	/// use utf16_lit::utf16;
+	/// let s:Result<StaticString<16>,DecodeUtf16Error>=StaticString::from_utf16(&utf16!("Hello, World!"));
+	/// assert_eq!(s.unwrap(),"Hello, World!");
+	/// // A surrogate alone is definitely not a valid character.
+	/// let s:Result<StaticString<16>,DecodeUtf16Error>=StaticString::from_utf16(&[0xd800]);
+	/// assert!(s.is_err());
+	/// ```
+	pub fn from_utf16(v:&[u16])->Result<Self,DecodeUtf16Error>
+	{
+		let mut r=Self::new();
+		for c in char::decode_utf16(v.iter().copied())
+		{
+			let _=match c
+			{
+				Ok(ch)=>r.push(ch),
+				Err(e)=>return Err(e)
+			};
+		}
+		Ok(r)
+	}
+
+	/// Decodes a native endian UTF-16-encoded vector `v` into this `StaticString<N>`.
+	/// Returns `Err(DecodeUtf16Error)` if `v` contains invalid UTF-16 characters.
+	/// 
+	/// # Examples
+	/// ```
+	/// use core::char::DecodeUtf16Error;
+	/// use static_collections::string::StaticString;
+	/// use utf16_lit::utf16;
+	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_le()).collect();
+	/// let s:Result<StaticString<16>,DecodeUtf16Error>=StaticString::from_utf16le(tmp.as_slice());
+	/// assert_eq!(s.unwrap(),"Hello, World!");
+	/// // A surrogate alone is definitely not a valid character.
+	/// let tmp:u16=0xd800;
+	/// let s:Result<StaticString<16>,DecodeUtf16Error>=StaticString::from_utf16le(&[tmp.to_le()]);
+	/// assert!(s.is_err());
+	/// ```
+	pub fn from_utf16le(v:&[u16])->Result<Self,DecodeUtf16Error>
+	{
+		let mut r=Self::new();
+		for c in char::decode_utf16(v.iter().map(|x| x.to_le()))
+		{
+			let _=match c
+			{
+				Ok(ch)=>r.push(ch),
+				Err(e)=>return Err(e)
+			};
+		}
+		Ok(r)
+	}
+
+	/// Decodes a native endian UTF-16-encoded vector `v` into this `StaticString<N>`.
+	/// Returns `Err(DecodeUtf16Error)` if `v` contains invalid UTF-16 characters.
+	/// 
+	/// # Examples
+	/// ```
+	/// use core::char::DecodeUtf16Error;
+	/// use static_collections::string::StaticString;
+	/// use utf16_lit::utf16;
+	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_be()).collect();
+	/// let s:Result<StaticString<16>,DecodeUtf16Error>=StaticString::from_utf16be(tmp.as_slice());
+	/// assert_eq!(s.unwrap(),"Hello, World!");
+	/// // A surrogate alone is definitely not a valid character.
+	/// let tmp:u16=0xd800;
+	/// let s:Result<StaticString<16>,DecodeUtf16Error>=StaticString::from_utf16be(&[tmp.to_be()]);
+	/// assert!(s.is_err());
+	/// ```
+	pub fn from_utf16be(v:&[u16])->Result<Self,DecodeUtf16Error>
+	{
+		let mut r=Self::new();
+		for c in char::decode_utf16(v.iter().map(|x| x.to_be()))
+		{
+			let _=match c
+			{
+				Ok(ch)=>r.push(ch),
+				Err(e)=>return Err(e)
+			};
+		}
+		Ok(r)
+	}
+
+	/// Decodes a native endian UTF-16-encoded vector `v` into this `StaticString<N>`.
+	/// If `v` contains invalid characters, it would be replaced with [the replacement character (U+FFFD)](https://doc.rust-lang.org/core/char/constant.REPLACEMENT_CHARACTER.html).
+	/// 
+	/// # Examples
+	/// ```
+	/// use static_collections::string::StaticString;
+	/// use utf16_lit::utf16;
+	/// let s:StaticString<16>=StaticString::from_utf16_lossy(&utf16!("Hello, World!"));
+	/// assert_eq!(s,"Hello, World!");
+	/// // A surrogate alone is definitely not a valid character.
+	/// let s:StaticString<16>=StaticString::from_utf16_lossy(&[0xd800]);
+	/// assert_eq!(s.as_str(),String::from(char::REPLACEMENT_CHARACTER));
+	/// ```
+	pub fn from_utf16_lossy(v:&[u16])->Self
+	{
+		let mut r=Self::new();
+		for c in char::decode_utf16(v.iter().copied())
+		{
+			let ch=match c
+			{
+				Ok(ch)=>ch,
+				Err(_)=>char::REPLACEMENT_CHARACTER
+			};
+			let _=r.push(ch);
+		}
+		r
+	}
+
+	/// Decodes a little endian UTF-16-encoded vector `v` into this `StaticString<N>`.
+	/// If `v` contains invalid characters, it would be replaced with [the replacement character (U+FFFD)](https://doc.rust-lang.org/core/char/constant.REPLACEMENT_CHARACTER.html).
+	/// 
+	/// # Examples
+	/// ```
+	/// use static_collections::string::StaticString;
+	/// use utf16_lit::utf16;
+	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_le()).collect();
+	/// let s:StaticString<16>=StaticString::from_utf16le_lossy(tmp.as_slice());
+	/// assert_eq!(s,"Hello, World!");
+	/// // A surrogate alone is definitely not a valid character.
+	/// let tmp:u16=0xd800;
+	/// let s:StaticString<16>=StaticString::from_utf16le_lossy(&[tmp.to_le()]);
+	/// assert_eq!(s.as_str(),String::from(char::REPLACEMENT_CHARACTER));
+	/// ```
+	pub fn from_utf16le_lossy(v:&[u16])->Self
+	{
+		let mut r=Self::new();
+		// If native endianness is LE, `to_le` does not invert bytes.
+		// If native endianness is BE, `to_le` will invert bytes.
+		for c in char::decode_utf16(v.iter().map(|x| x.to_le()))
+		{
+			let ch=match c
+			{
+				Ok(ch)=>ch,
+				Err(_)=>char::REPLACEMENT_CHARACTER
+			};
+			let _=r.push(ch);
+		}
+		r
+	}
+
+	/// Decodes a big endian UTF-16-encoded vector `v` into this `StaticString<N>`.
+	/// If `v` contains invalid characters, it would be replaced with [the replacement character (U+FFFD)](https://doc.rust-lang.org/core/char/constant.REPLACEMENT_CHARACTER.html).
+	/// 
+	/// # Examples
+	/// ```
+	/// use static_collections::string::StaticString;
+	/// use utf16_lit::utf16;
+	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_be()).collect();
+	/// let s:StaticString<16>=StaticString::from_utf16be_lossy(tmp.as_slice());
+	/// assert_eq!(s,"Hello, World!");
+	/// // A surrogate alone is definitely not a valid character.
+	/// let tmp:u16=0xd800;
+	/// let s:StaticString<16>=StaticString::from_utf16be_lossy(&[tmp.to_be()]);
+	/// assert_eq!(s.as_str(),String::from(char::REPLACEMENT_CHARACTER));
+	/// ```
+	pub fn from_utf16be_lossy(v:&[u16])->Self
+	{
+		let mut r=Self::new();
+		// If native endianness is BE, `to_be` does not invert bytes.
+		// If native endianness is LE, `to_be` will invert bytes.
+		for c in char::decode_utf16(v.iter().map(|x| x.to_be()))
+		{
+			let ch=match c
+			{
+				Ok(ch)=>ch,
+				Err(_)=>char::REPLACEMENT_CHARACTER
+			};
+			let _=r.push(ch);
+		}
+		r
 	}
 
 	/// Inserts a given `char` to the end of this `StaticString` at specified byte location `index`.
