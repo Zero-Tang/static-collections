@@ -346,6 +346,12 @@ impl<const N:usize> StaticString<N>
 
 	/// Inserts a given `char` to the end of this `StaticString` at specified byte location `index`.
 	/// 
+	/// Returns `Err(InsertError)` if insertion failed:
+	/// - Insertion could fail if it overflows the capacity.
+	/// - Insertion could fail if `index` is in the middle of a character.
+	/// 
+	/// Note that calling this in a loop can result in quadratic time complexity.
+	/// 
 	/// # Examples
 	/// ```
 	/// use static_collections::string::StaticString;
@@ -355,6 +361,10 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	pub fn insert(&mut self,index:usize,ch:char)->Result<(),InsertError>
 	{
+		if !self.is_char_boundary(index)
+		{
+			return Err(InsertError);
+		}
 		let ch_len=ch.len_utf8();
 		let old_end=self.len();
 		if old_end+ch_len>N
@@ -376,6 +386,12 @@ impl<const N:usize> StaticString<N>
 
 	/// Inserts a given string slice to the end of this `StaticString` at specified byte location `index`.
 	/// 
+	/// Returns `Err(InsertError)` if insertion failed:
+	/// - Insertion could fail if it overflows the capacity.
+	/// - Insertion could fail if `index` is in the middle of a character.
+	/// 
+	/// Note that calling this in a loop can result in quadratic time complexity.
+	/// 
 	/// # Examples
 	/// ```
 	/// use static_collections::string::StaticString;
@@ -385,6 +401,10 @@ impl<const N:usize> StaticString<N>
 	/// ```
 	pub fn insert_str(&mut self,index:usize,string:&str)->Result<(),InsertError>
 	{
+		if !self.is_char_boundary(index)
+		{
+			return Err(InsertError);
+		}
 		let str_len=string.len();
 		let old_end=self.len();
 		if old_end+str_len>N
