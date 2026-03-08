@@ -166,7 +166,18 @@ impl<const N:usize> StaticCString<N>
 
 impl<'a,const N:usize> StaticCString<N>
 {
-	#[inline(always)] pub fn from_raw_ptr(ptr:*const i8)->Result<&'a Self,NotNullTerminatedError>
+	/// Gets an immutable fixed-capacity StaticCString object reference from a raw pointer.
+	/// 
+	/// Returns `Err(NotNullTerminatedError)` if the string is not null-terminated.
+	/// 
+	/// # Safety
+	/// You must ensure the lifetime of the `&'a StaticCString` lives long enough. \
+	/// You must ensure `ptr` points to a valid region that has `N` bytes.
+	/// 
+	/// # Panic
+	/// The `strnlen` will be called by this function. It may trigger an exception. \
+	/// The program may either panic, crash, or run normally if the exception is handled.
+	#[inline(always)] pub unsafe fn from_raw_ptr(ptr:*const i8)->Result<&'a Self,NotNullTerminatedError>
 	{
 		let r:&Self=unsafe{&*ptr.cast()};
 		if r.len()>=N
@@ -179,7 +190,18 @@ impl<'a,const N:usize> StaticCString<N>
 		}
 	}
 	
-	#[inline(always)] pub fn from_raw_mut_ptr(ptr:*mut i8)->Result<&'a mut Self,NotNullTerminatedError>
+	/// Gets a mutable fixed-capacity StaticCString object reference from a raw pointer.
+	/// 
+	/// Returns `Err(NotNullTerminatedError)` if the string is not null-terminated.
+	/// 
+	/// # Safety
+	/// You must ensure the lifetime of the `&'a mut StaticCString` lives long enough. \
+	/// You must ensure `ptr` points to a valid region that has `N` bytes.
+	/// 
+	/// # Panic
+	/// The `strnlen` will be called by this function. It may trigger an exception. \
+	/// The program may either panic, crash, or run normally if the exception is handled.
+	#[inline(always)] pub unsafe fn from_raw_mut_ptr(ptr:*mut i8)->Result<&'a mut Self,NotNullTerminatedError>
 	{
 		let r:&mut Self=unsafe{&mut *ptr.cast()};
 		if r.len()>=N
