@@ -1,6 +1,6 @@
 [package]
 name = "static-collections"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 description = "Implementations of fixed-capacity collection types."
@@ -9,7 +9,7 @@ repository = "https://github.com/Zero-Tang/static-collections"
 readme = "readme.md"
 keywords = ["no_std"]
 categories = ["no-std","no-std::no-alloc"]
-exclude = [".gitignore","license.txt"]
+exclude = [".gitignore","license.txt",".github/*"]
 
 [features]
 use_crt = []
