@@ -7,12 +7,72 @@ use core::{cmp::Ordering, ffi::CStr, fmt, mem::MaybeUninit, ops::AddAssign, slic
 pub struct NotNullTerminatedError;
 
 // Usually, CRT routines are seriously optimized by target vendor.
+// However, it depends on target vendor's implementation, and the target vendor may not even provide CRT at all.
+#[cfg(feature = "use_crt")]
 unsafe extern "C"
 {
 	fn strncat(dest:*mut i8,src:*const i8,cch:usize)->*mut i8;
 	fn strncmp(s1:*const i8,s2:*const i8,cch:usize)->isize;
 	fn strncpy(dest:*mut i8,src:*const i8,cch:usize)->*mut i8;
 	pub(crate) fn strnlen(str:*const i8,cch:usize)->usize;
+}
+
+// If usage of CRT is disabled, implement CRT on our own.
+
+#[cfg(not(feature = "use_crt"))]
+#[unsafe(no_mangle)] pub(crate) unsafe extern "C" fn strnlen(str:*const i8,cch:usize)->usize
+{
+	let s=unsafe{slice::from_raw_parts(str,cch)};
+	s.iter().position(|&v| v==0).unwrap_or(cch)
+}
+
+#[cfg(not(feature = "use_crt"))]
+#[unsafe(no_mangle)] unsafe extern "C" fn strncpy(dest:*mut i8,src:*const i8,cch:usize)->*mut i8
+{
+	let s1=unsafe{slice::from_raw_parts_mut(dest,cch)};
+	let s2=unsafe{slice::from_raw_parts(src,cch)};
+	for (i,&c) in s2.iter().enumerate()
+	{
+		s1[i]=c;
+		if c==0
+		{
+			break;
+		}
+	}
+	dest
+}
+
+#[cfg(not(feature = "use_crt"))]
+#[unsafe(no_mangle)] unsafe extern "C" fn strncmp(str1:*const i8,str2:*const i8,cch:usize)->isize
+{
+	let s1=unsafe{slice::from_raw_parts(str1,cch)};
+	let s2=unsafe{slice::from_raw_parts(str2,cch)};
+	for i in 0..cch
+	{
+		let diff=s1[i]-s2[i];
+		if diff!=0
+		{
+			return diff as isize
+		}
+	}
+	0
+}
+
+#[cfg(not(feature = "use_crt"))]
+#[unsafe(no_mangle)] unsafe extern "C" fn strncat(dest:*mut i8,src:*const i8,cch:usize)->*mut i8
+{
+	let start_index=unsafe{strnlen(dest,usize::MAX)};
+	let s1=unsafe{slice::from_raw_parts_mut(dest.add(start_index),cch)};
+	let s2=unsafe{slice::from_raw_parts(src,cch)};
+	for (i,&c) in s2.iter().enumerate()
+	{
+		s1[i]=c;
+		if c==0
+		{
+			break;
+		}
+	}
+	dest
 }
 
 /// A C-compatible, growable but fixed-capacity string. \

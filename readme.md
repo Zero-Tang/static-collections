@@ -22,6 +22,11 @@ For x86 (including 32-bit and 64-bit) targets, bitmap operations are accelerated
 I am no algorithm-expert. Useful data-structures in [`alloc::collections`](https://doc.rust-lang.org/alloc/collections/index.html) (e.g.: `BTreeMap`) module will not be implemented here for now. \
 However, feel free to contribute.
 
+## Feature Flags
+You may configure feature flags provided in this crate.
+
+- `use_crt` flag may enable usage of CRT routines like `strnlen`. If your target vendor provides highly-optimized CRT routines, you may define this flag. Otherwise, do not define it.
+
 ## Compatibility
 This repository supports `no_std` and does not require dynamic allocations. \
 Hence, it could probably be useful for resource-limited environments (e.g.: embedded devices, windows-kernel with high IRQL, etc.)

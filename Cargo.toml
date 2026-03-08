@@ -11,6 +11,9 @@ keywords = ["no_std"]
 categories = ["no-std","no-std::no-alloc"]
 exclude = [".gitignore","license.txt"]
 
+[features]
+use_crt = []
+
 [dependencies]
 
 [dev-dependencies]
