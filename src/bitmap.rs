@@ -274,9 +274,8 @@ impl<const N:usize> RefBitmap<N>
 				unsafe
 				{
 					let old=bmp.add(i).read_unaligned();
-					let r=(old&v)!=0;
-					bmp.add(i).write_unaligned(if r {old&!v} else {old|v});
-					Ok(r)
+					bmp.add(i).write_unaligned(old^v);
+					Ok((old&v)!=0)
 				}
 			}
 		}
