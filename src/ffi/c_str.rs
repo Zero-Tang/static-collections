@@ -11,7 +11,6 @@ pub struct NotNullTerminatedError;
 #[cfg(feature = "use_crt")]
 unsafe extern "C"
 {
-	fn strncat(dest:*mut i8,src:*const i8,cch:usize)->*mut i8;
 	fn strncmp(s1:*const i8,s2:*const i8,cch:usize)->isize;
 	fn strncpy(dest:*mut i8,src:*const i8,cch:usize)->*mut i8;
 	pub(crate) fn strnlen(str:*const i8,cch:usize)->usize;
@@ -56,23 +55,6 @@ unsafe extern "C"
 		}
 	}
 	0
-}
-
-#[cfg(not(feature = "use_crt"))]
-#[unsafe(no_mangle)] unsafe extern "C" fn strncat(dest:*mut i8,src:*const i8,cch:usize)->*mut i8
-{
-	let start_index=unsafe{strnlen(dest,usize::MAX)};
-	let s1=unsafe{slice::from_raw_parts_mut(dest.add(start_index),cch)};
-	let s2=unsafe{slice::from_raw_parts(src,cch)};
-	for (i,&c) in s2.iter().enumerate()
-	{
-		s1[i]=c;
-		if c==0
-		{
-			break;
-		}
-	}
-	dest
 }
 
 /// A C-compatible, growable but fixed-capacity string. \
@@ -332,7 +314,13 @@ impl<const M:usize,const N:usize> AddAssign<StaticCString<M>> for StaticCString<
 		{
 			let p=rhs.buffer.assume_init_ref().as_ptr();
 			let q=self.buffer.assume_init_mut().as_mut_ptr();
-			strncat(q,p,if M<N {M} else {N});
+			// We can't use `strncat` because the length argument does not indicate buffer limit size.
+			// We have to implement it by `strnlen`+`strncpy`.
+			let l=strnlen(q,M);
+			let r=q.byte_add(l);
+			let len1=M-l;
+			let len2=N;
+			strncpy(r,p,if len1>len2 {len2} else {len1});
 			// Force the final byte to null-character.
 			q.add(N-1).write(0);
 		}
@@ -359,3 +347,30 @@ impl<const N:usize> Default for StaticCString<N>
 
 unsafe impl<const N:usize> Send for StaticCString<N> {}
 unsafe impl<const N:usize> Sync for StaticCString<N> {}
+
+#[cfg(test)] mod test
+{
+	use crate::ffi::c_str::StaticCString;
+
+	#[test] fn add_assign()
+	{
+		let mut s1:StaticCString<32>=StaticCString::from(c"abc");
+		let s2:StaticCString<32>=StaticCString::from(c"def");
+		s1+=s2;
+		assert_eq!(s1.as_c_str(),c"abcdef");
+	}
+
+	#[test] fn add_assign_overflow()
+	{
+		let mut s1:StaticCString<5>=StaticCString::from(c"abc");
+		let s2:StaticCString<5>=StaticCString::from(c"def");
+		s1+=s2;
+		assert_eq!(s1.as_c_str(),c"abcd");
+	}
+
+	#[test] fn from_overflow()
+	{
+		let s:StaticCString<5>=StaticCString::from(c"abcdef");
+		assert_eq!(s.as_c_str(),c"abcd");
+	}
+}
