@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "static-collections"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "utf16_lit",
 ]
