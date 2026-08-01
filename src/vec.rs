@@ -105,7 +105,7 @@ impl<const N:usize,T> StaticVec<N,T>
 		}
 	}
 
-	/// Put value `v` to the end of static vector.
+	/// Put value `v` to the end of static vector and return whether the vector is full.
 	/// 
 	/// # Example
 	/// ```
@@ -116,7 +116,7 @@ impl<const N:usize,T> StaticVec<N,T>
 	/// v.push(4567);
 	/// assert_eq!(v.as_slice(),&[1234,4567]);
 	/// ```
-	pub fn push(&mut self,v:T)
+	pub fn push(&mut self,v:T)->bool
 	{
 		if self.length<N
 		{
@@ -127,6 +127,11 @@ impl<const N:usize,T> StaticVec<N,T>
 				ptr::write(&raw mut vector[self.length],v);
 			}
 			self.length+=1;
+			true
+		}
+		else
+		{
+			false
 		}
 	}
 

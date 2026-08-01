@@ -159,7 +159,7 @@ impl<const N:usize> StaticWString<N>
 	{
 		for c in s.encode_utf16()
 		{
-			self.internal.push(c)
+			self.internal.push(c);
 		}
 	}
 
