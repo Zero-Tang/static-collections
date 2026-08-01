@@ -49,6 +49,30 @@ impl<const N:usize,T> StaticVec<N,T>
 		}
 	}
 
+	/// Collects items from the iterator into the static vector.
+	/// 
+	/// This routine is implemented here because the `Iterator::collect_into` method is only
+	/// available as a nightly-only experimental API.
+	/// 
+	/// # Example
+	/// ```
+	/// use static_collections::vec::StaticVec;
+	/// let s:[u64;3]=[3,2,1];
+	/// let mut v:StaticVec<8,u64>=StaticVec::collect_from(s.iter().map(|v| *v));
+	/// assert_eq!(v.len(),3);
+	/// v.push(0);
+	/// assert_eq!(v.as_slice(),&[3,2,1,0]);
+	/// ```
+	pub fn collect_from(iterator:impl Iterator<Item=T>)->Self
+	{
+		let mut x=Self::new();
+		for y in iterator
+		{
+			x.push(y);
+		}
+		x
+	}
+
 	pub const fn as_slice(&self)->&[T]
 	{
 		unsafe
