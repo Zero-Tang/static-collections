@@ -1,16 +1,8 @@
 // The static-string module
 
-use core::{char::DecodeUtf16Error, fmt::{self, Debug, Display}, ops::{AddAssign, Deref, DerefMut}, str};
+use core::{fmt::{self, Debug, Display}, ops::{AddAssign, Deref, DerefMut}, str};
 
-use crate::{ffi::c_str::strnlen, vec::StaticVec};
-
-#[derive(Debug)]
-pub enum InsertError
-{
-	InsufficientSpace,
-	NonUtf8Boundary,
-	Utf16Error(DecodeUtf16Error)
-}
+use crate::{error::InsertError, ffi::c_str::strnlen, vec::StaticVec};
 
 /// The `StaticString` type is a fixed-capacity UTF-8 string object. \
 /// To estimate length `N` you need, consider the following UTF-8 facts:
@@ -176,7 +168,7 @@ impl<const N:usize> StaticString<N>
 	/// 
 	/// # Examples
 	/// ```
-	/// use static_collections::string::*;
+	/// use static_collections::{string::*,error::InsertError};
 	/// use utf16_lit::utf16;
 	/// let s: Result<StaticString<16>, InsertError>=StaticString::from_utf16(&utf16!("Hello, World!"));
 	/// assert_eq!(s.unwrap(),"Hello, World!");
@@ -206,7 +198,7 @@ impl<const N:usize> StaticString<N>
 	///
 	/// # Examples
 	/// ```
-	/// use static_collections::string::*;
+	/// use static_collections::{string::*,error::InsertError};
 	/// use utf16_lit::utf16;
 	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_le()).collect();
 	/// let s: Result<StaticString<16>,InsertError>=StaticString::from_utf16le(tmp.as_slice());
@@ -238,7 +230,7 @@ impl<const N:usize> StaticString<N>
 	///
 	/// # Examples
 	/// ```
-	/// use static_collections::string::*;
+	/// use static_collections::{string::*,error::InsertError};
 	/// use utf16_lit::utf16;
 	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_be()).collect();
 	/// let s:Result<StaticString<16>,InsertError>=StaticString::from_utf16be(tmp.as_slice());
@@ -270,7 +262,7 @@ impl<const N:usize> StaticString<N>
 	///
 	/// # Examples
 	/// ```
-	/// use static_collections::string::*;
+	/// use static_collections::{string::*,error::InsertError};
 	/// use utf16_lit::utf16;
 	/// let s:Result<StaticString<16>,InsertError>=StaticString::from_utf16_lossy(&utf16!("Hello, World!"));
 	/// assert_eq!(s.unwrap().as_str(),"Hello, World!");
@@ -297,7 +289,7 @@ impl<const N:usize> StaticString<N>
 	/// 
 	/// # Examples
 	/// ```
-	/// use static_collections::string::*;
+	/// use static_collections::{string::*,error::InsertError};
 	/// use utf16_lit::utf16;
 	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_le()).collect();
 	/// let s:Result<StaticString<16>,InsertError>=StaticString::from_utf16le_lossy(tmp.as_slice());
@@ -329,7 +321,7 @@ impl<const N:usize> StaticString<N>
 	/// 
 	/// # Examples
 	/// ```
-	/// use static_collections::string::*;
+	/// use static_collections::{string::*,error::InsertError};
 	/// use utf16_lit::utf16;
 	/// let tmp:Vec<u16>=utf16!("Hello, World!").iter().map(|x| x.to_be()).collect();
 	/// let s:Result<StaticString<16>,InsertError>=StaticString::from_utf16be_lossy(tmp.as_slice());
