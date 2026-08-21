@@ -2,6 +2,8 @@
 
 use core::{mem::MaybeUninit, ops::{Deref, DerefMut}, ptr, slice};
 
+use crate::error::InsertError;
+
 #[derive(Debug)]
 pub struct StaticVec<const N:usize,T>
 {
@@ -58,19 +60,19 @@ impl<const N:usize,T> StaticVec<N,T>
 	/// ```
 	/// use static_collections::vec::StaticVec;
 	/// let s:[u64;3]=[3,2,1];
-	/// let mut v:StaticVec<8,u64>=StaticVec::collect_from(s.iter().map(|v| *v));
+	/// let mut v:StaticVec<8,u64>=StaticVec::collect_from(s.iter().map(|v| *v)).unwrap();
 	/// assert_eq!(v.len(),3);
 	/// v.push(0);
 	/// assert_eq!(v.as_slice(),&[3,2,1,0]);
 	/// ```
-	pub fn collect_from(iterator:impl Iterator<Item=T>)->Self
+	pub fn collect_from(iterator:impl Iterator<Item=T>)->Result<Self,InsertError>
 	{
 		let mut x=Self::new();
 		for y in iterator
 		{
-			x.push(y);
+			x.push(y)?;
 		}
-		x
+		Ok(x)
 	}
 
 	pub const fn as_slice(&self)->&[T]
@@ -116,7 +118,7 @@ impl<const N:usize,T> StaticVec<N,T>
 	/// v.push(4567);
 	/// assert_eq!(v.as_slice(),&[1234,4567]);
 	/// ```
-	pub fn push(&mut self,v:T)->bool
+	pub fn push(&mut self,v:T)->Result<(),InsertError>
 	{
 		if self.length<N
 		{
@@ -127,11 +129,11 @@ impl<const N:usize,T> StaticVec<N,T>
 				ptr::write(&raw mut vector[self.length],v);
 			}
 			self.length+=1;
-			true
+			Ok(())
 		}
 		else
 		{
-			false
+			Err(InsertError::InsufficientSpace)
 		}
 	}
 
@@ -471,19 +473,19 @@ impl<const N:usize,T> DerefMut for StaticVec<N,T>
 		let drop_count:AtomicUsize=AtomicUsize::new(0);
 		{
 			let mut v:StaticVec<8,DropCounter>=StaticVec::new();
-			v.push(DropCounter{counter:&drop_count});
-			v.push(DropCounter{counter:&drop_count});
+			let _=v.push(DropCounter{counter:&drop_count});
+			let _=v.push(DropCounter{counter:&drop_count});
 			assert_eq!(drop_count.load(Ordering::SeqCst),0);
 			v.pop();
 			assert_eq!(drop_count.load(Ordering::SeqCst),1);
 			v.clear();
 			assert_eq!(drop_count.load(Ordering::SeqCst),2);
-			v.push(DropCounter{counter:&drop_count});
-			v.push(DropCounter{counter:&drop_count});
+			let _=v.push(DropCounter{counter:&drop_count});
+			let _=v.push(DropCounter{counter:&drop_count});
 			assert_eq!(drop_count.load(Ordering::SeqCst),2);
-			v.push(DropCounter{counter:&drop_count});
-			v.push(DropCounter{counter:&drop_count});
-			v.push(DropCounter{counter:&drop_count});
+			let _=v.push(DropCounter{counter:&drop_count});
+			let _=v.push(DropCounter{counter:&drop_count});
+			let _=v.push(DropCounter{counter:&drop_count});
 			assert_eq!(drop_count.load(Ordering::SeqCst),2);
 			assert_eq!(v.len(),5);
 			v.truncate(3);

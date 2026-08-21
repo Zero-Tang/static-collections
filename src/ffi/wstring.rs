@@ -2,7 +2,7 @@
 
 use core::{fmt, mem::MaybeUninit, ops::{Index, IndexMut}, slice::SliceIndex};
 
-use crate::vec::StaticVec;
+use crate::{error::InsertError, vec::StaticVec};
 
 /// The `StaticWString` is a fixed-capacity UTF-16 string object.
 #[derive(Default, Debug, Clone)]
@@ -128,7 +128,7 @@ impl<const N:usize> StaticWString<N>
 	/// assert_eq!(s.len(),1);
 	/// assert_eq!(s.as_slice(),[b'a' as u16]);
 	/// ```
-	pub fn push_char(&mut self,ch:char)
+	pub fn push_char(&mut self,ch:char)->Result<(),InsertError>
 	{
 		let rsvd_size=ch.len_utf16();
 		if self.capacity()-self.len()>rsvd_size
@@ -139,10 +139,11 @@ impl<const N:usize> StaticWString<N>
 				let u=ch.encode_utf16(x.assume_init_mut());
 				for c in u
 				{
-					self.internal.push(*c);
+					self.internal.push(*c)?;
 				}
 			}
 		}
+		Ok(())
 	}
 
 	/// Inserts a UTF-8 encoded string-slice to the end of the string.
@@ -155,12 +156,13 @@ impl<const N:usize> StaticWString<N>
 	/// s.push_str("Hello, World!");
 	/// assert_eq!(s.as_slice(),utf16!("Hello, World!"));
 	/// ```
-	pub fn push_str(&mut self,s:&str)
+	pub fn push_str(&mut self,s:&str)->Result<(),InsertError>
 	{
 		for c in s.encode_utf16()
 		{
-			self.internal.push(c);
+			self.internal.push(c)?;
 		}
+		Ok(())
 	}
 
 	/// Inserts a character to the position specifed by `index`.
@@ -244,7 +246,10 @@ impl<const N:usize> From<&str> for StaticWString<N>
 	fn from(value: &str) -> Self
 	{
 		let mut s=Self::new();
-		s.push_str(value);
+		if let Err(e)=s.push_str(value)
+		{
+			panic!("{e}");
+		}
 		s
 	}
 }
@@ -302,13 +307,13 @@ impl<const N:usize> fmt::Write for StaticWString<N>
 {
 	fn write_char(&mut self, c: char) -> fmt::Result
 	{
-		self.push_char(c);
+		self.push_char(c)?;
 		Ok(())
 	}
 
 	fn write_str(&mut self, s: &str) -> fmt::Result
 	{
-		self.push_str(s);
+		self.push_str(s)?;
 		Ok(())
 	}
 }
