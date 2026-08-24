@@ -1,10 +1,6 @@
 // C-String
 
-use core::{cmp::Ordering, ffi::CStr, fmt, mem::MaybeUninit, ops::AddAssign, slice};
-
-/// This error is used to indicate the string is not null-terminated.
-#[derive(Debug)]
-pub struct NotNullTerminatedError;
+use core::{cmp::Ordering, ffi::{CStr, FromBytesWithNulError}, fmt, mem::MaybeUninit, ops::AddAssign, slice};
 
 // Usually, CRT routines are seriously optimized by target vendor.
 // However, it depends on target vendor's implementation, and the target vendor may not even provide CRT at all.
@@ -210,7 +206,7 @@ impl<'a,const N:usize> StaticCString<N>
 {
 	/// Gets an immutable fixed-capacity StaticCString object reference from a raw pointer.
 	/// 
-	/// Returns `Err(NotNullTerminatedError)` if the string is not null-terminated.
+	/// Returns `Err(FromBytesWithNulError)` if the string is not null-terminated.
 	/// 
 	/// # Safety
 	/// You must ensure the lifetime of the `&'a StaticCString` lives long enough. \
@@ -219,12 +215,12 @@ impl<'a,const N:usize> StaticCString<N>
 	/// # Panic
 	/// The `strnlen` will be called by this function. It may trigger an exception. \
 	/// The program may either panic, crash, or run normally if the exception is handled.
-	#[inline(always)] pub unsafe fn from_raw_ptr(ptr:*const i8)->Result<&'a Self,NotNullTerminatedError>
+	#[inline(always)] pub unsafe fn from_raw_ptr(ptr:*const i8)->Result<&'a Self,FromBytesWithNulError>
 	{
 		let r:&Self=unsafe{&*ptr.cast()};
 		if r.len()>=N
 		{
-			Err(NotNullTerminatedError)
+			Err(FromBytesWithNulError::NotNulTerminated)
 		}
 		else
 		{
@@ -234,7 +230,7 @@ impl<'a,const N:usize> StaticCString<N>
 	
 	/// Gets a mutable fixed-capacity StaticCString object reference from a raw pointer.
 	/// 
-	/// Returns `Err(NotNullTerminatedError)` if the string is not null-terminated.
+	/// Returns `Err(FromBytesWithNulError)` if the string is not null-terminated.
 	/// 
 	/// # Safety
 	/// You must ensure the lifetime of the `&'a mut StaticCString` lives long enough. \
@@ -243,12 +239,12 @@ impl<'a,const N:usize> StaticCString<N>
 	/// # Panic
 	/// The `strnlen` will be called by this function. It may trigger an exception. \
 	/// The program may either panic, crash, or run normally if the exception is handled.
-	#[inline(always)] pub unsafe fn from_raw_mut_ptr(ptr:*mut i8)->Result<&'a mut Self,NotNullTerminatedError>
+	#[inline(always)] pub unsafe fn from_raw_mut_ptr(ptr:*mut i8)->Result<&'a mut Self,FromBytesWithNulError>
 	{
 		let r:&mut Self=unsafe{&mut *ptr.cast()};
 		if r.len()>=N
 		{
-			Err(NotNullTerminatedError)
+			Err(FromBytesWithNulError::NotNulTerminated)
 		}
 		else
 		{
