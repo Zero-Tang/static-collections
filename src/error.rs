@@ -32,3 +32,32 @@ impl Display for InsertError
 		}
 	}
 }
+
+#[derive(PartialEq, Debug)]
+pub struct OutOfBitmapError
+{
+	position:usize,
+	limit:usize
+}
+
+impl OutOfBitmapError
+{
+	pub const fn new(position:usize,limit:usize)->Self
+	{
+		Self
+		{
+			position,
+			limit
+		}
+	}
+}
+
+impl fmt::Display for OutOfBitmapError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		write!(f,"bit {} is out of bitmap's limit {}",self.position,self.limit)
+	}
+}
+
+impl Error for OutOfBitmapError {}

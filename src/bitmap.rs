@@ -1,36 +1,11 @@
 // The bitmap module
-use core::{fmt, ops::{Deref, DerefMut}, ptr};
+use core::{ops::{Deref, DerefMut}, ptr};
 #[cfg(target_arch="x86_64")]
 use core::arch::{asm, x86_64::{_bittest64,_bittestandcomplement64,_bittestandreset64,_bittestandset64}};
 #[cfg(target_arch="x86")]
 use core::arch::{asm, x86::{_bittest,_bittestandcomplement,_bittestandreset,_bittestandset}};
 
-#[derive(PartialEq, Debug)]
-pub struct OutOfBitmapError
-{
-	position:usize,
-	limit:usize
-}
-
-impl OutOfBitmapError
-{
-	pub const fn new(position:usize,limit:usize)->Self
-	{
-		Self
-		{
-			position,
-			limit
-		}
-	}
-}
-
-impl fmt::Display for OutOfBitmapError
-{
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-	{
-		write!(f,"bit {} is out of bitmap's limit {}",self.position,self.limit)
-	}
-}
+use crate::error::OutOfBitmapError;
 
 /// The ZST `RefBitmap` reference with `N` bits.
 /// 
@@ -603,7 +578,7 @@ impl<const N:usize> RefBitmap<N>
 	/// 
 	/// # Example
 	/// ```
-	/// use static_collections::bitmap::*;
+	/// use static_collections::{bitmap::*,error::OutOfBitmapError};
 	/// let bmp_raw:[u64;4]=[0,1,2,4];
 	/// let bmp:&RefBitmap<256>=unsafe{RefBitmap::from_raw_ptr(bmp_raw.as_ptr().cast())};
 	/// assert_eq!(bmp.test(36),Ok(false));
@@ -784,13 +759,13 @@ impl BitmapSlice
 	/// 
 	/// # Example
 	/// ```
-	/// use static_collections::bitmap::BitmapSlice;
+	/// use static_collections::{bitmap::*,error::OutOfBitmapError};
 	/// let raw:[u8;2]=[0b00000001,0b10000000];
 	/// let bmp:&BitmapSlice=unsafe{BitmapSlice::from_raw_parts(raw.as_ptr(),raw.len())};
 	/// assert_eq!(bmp.test(0),Ok(true));
 	/// assert_eq!(bmp.test(7),Ok(false));
 	/// assert_eq!(bmp.test(15),Ok(true));
-	/// assert_eq!(bmp.test(16),Err(static_collections::bitmap::OutOfBitmapError::new(16,16)))
+	/// assert_eq!(bmp.test(16),Err(OutOfBitmapError::new(16,16)))
 	/// ```
 	pub fn test(&self,position:usize)->Result<bool,OutOfBitmapError>
 	{
