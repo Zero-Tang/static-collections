@@ -2,7 +2,7 @@
 
 use core::{char::DecodeUtf16Error, error::Error, fmt::{self, Display}};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum InsertError
 {
 	InsufficientSpace,

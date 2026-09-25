@@ -172,27 +172,33 @@ impl<const N:usize> StaticWString<N>
 	/// use static_collections::ffi::wstring::StaticWString;
 	/// use utf16_lit::utf16;
 	/// let mut s:StaticWString<32>=StaticWString::from("Hello World!");
-	/// s.insert_char(5,',');
+	/// s.insert_char(5,',').unwrap();
 	/// assert_eq!(s.as_slice(),utf16!("Hello, World!"));
 	/// ```
-	pub fn insert_char(&mut self,index:usize,ch:char)
+	pub fn insert_char(&mut self,index:usize,ch:char)->Result<(),InsertError>
 	{
-		let mut x:MaybeUninit<[u16;2]>=MaybeUninit::uninit();
-		let rsvd_size=ch.len_utf16();
-		if self.capacity()-self.len()>rsvd_size
+		if index>self.len()
 		{
-			let copy_range=index..self.len();
-			let u=unsafe
-			{
-				self.internal.force_resize(self.len()+rsvd_size);
-				ch.encode_utf16(x.assume_init_mut())
-			};
-			self.internal.copy_within(copy_range,index+rsvd_size);
-			for (i,c) in u.iter().enumerate()
-			{
-				self[index+i]= *c;
-			}
+			return Err(InsertError::NonUtf8Boundary);
 		}
+		let rsvd_size=ch.len_utf16();
+		if self.len()+rsvd_size>self.capacity()
+		{
+			return Err(InsertError::InsufficientSpace);
+		}
+		let mut x:MaybeUninit<[u16;2]>=MaybeUninit::uninit();
+		let copy_range=index..self.len();
+		let u=unsafe
+		{
+			self.internal.force_resize(self.len()+rsvd_size);
+			ch.encode_utf16(x.assume_init_mut())
+		};
+		self.internal.copy_within(copy_range,index+rsvd_size);
+		for (i,c) in u.iter().enumerate()
+		{
+			self[index+i]= *c;
+		}
+		Ok(())
 	}
 	/// Inserts a UTF-8-encoded string-slice to the position specified by `index`.
 	/// 
@@ -201,16 +207,23 @@ impl<const N:usize> StaticWString<N>
 	/// use static_collections::ffi::wstring::StaticWString;
 	/// use utf16_lit::utf16;
 	/// let mut s:StaticWString<32>=StaticWString::from("123789");
-	/// s.insert_str(3,"456");
+	/// s.insert_str(3,"456").unwrap();
 	/// assert_eq!(s.as_slice(),utf16!("123456789"));
 	/// ```
-	pub fn insert_str(&mut self,index:usize,s:&str)
+	pub fn insert_str(&mut self,index:usize,s:&str)->Result<(),InsertError>
 	{
+		if index>self.len()
+		{
+			return Err(InsertError::NonUtf8Boundary);
+		}
 		// Use `encode_utf16` iterator twice in order to avoid dynamic allocations.
 		// To avoid repeated memmoves, we need to count the number of UTF-16 characters.
 		let insert_len:usize=s.encode_utf16().count();
+		if self.len()+insert_len>self.capacity()
+		{
+			return Err(InsertError::InsufficientSpace);
+		}
 		let copy_range=index..self.len();
-		// May-Panic: The `force_resize` will panic if overflow.
 		unsafe
 		{
 			self.internal.force_resize(self.len()+insert_len);
@@ -220,6 +233,7 @@ impl<const N:usize> StaticWString<N>
 		{
 			self[index+i]=c;
 		}
+		Ok(())
 	}
 }
 
@@ -380,12 +394,31 @@ mod test
 {
 	extern crate std;
 	use std::format;
-	use super::StaticWString;
+	use super::{StaticWString, InsertError};
 
 	#[test] fn correct_fmt()
 	{
 		let s:StaticWString<32>=StaticWString::from("abcd魑魅魍魉1234😀🤣😅👍");
 		let ss=format!("This is {s}!");
 		assert_eq!(ss,"This is abcd魑魅魍魉1234😀🤣😅👍!");
+	}
+
+	#[test] fn insert_methods_return_result()
+	{
+		let mut s:StaticWString<8>=StaticWString::from("abc");
+		assert_eq!(s.insert_char(1,'X'),Ok(()));
+		assert_eq!(s.as_slice(),['a' as u16,'X' as u16,'b' as u16,'c' as u16]);
+
+		let mut s2:StaticWString<2>=StaticWString::from("ab");
+		assert_eq!(s2.insert_char(3,'X'),Err(InsertError::NonUtf8Boundary));
+		assert_eq!(s2.as_slice(),['a' as u16,'b' as u16]);
+
+		let mut t:StaticWString<6>=StaticWString::from("ab");
+		assert_eq!(t.insert_str(1,"XY"),Ok(()));
+		assert_eq!(t.as_slice(),['a' as u16,'X' as u16,'Y' as u16,'b' as u16]);
+
+		let mut t2:StaticWString<4>=StaticWString::from("ab");
+		assert_eq!(t2.insert_str(1,"XYZ"),Err(InsertError::InsufficientSpace));
+		assert_eq!(t2.as_slice(),['a' as u16,'b' as u16]);
 	}
 }
