@@ -200,6 +200,7 @@ impl<const N:usize> StaticWString<N>
 		}
 		Ok(())
 	}
+
 	/// Inserts a UTF-8-encoded string-slice to the position specified by `index`.
 	/// 
 	/// # Example
@@ -232,6 +233,156 @@ impl<const N:usize> StaticWString<N>
 		for (i,c) in s.encode_utf16().enumerate()
 		{
 			self[index+i]=c;
+		}
+		Ok(())
+	}
+
+	/// Replaces all matching substrings with another string.
+	/// 
+	/// The `replace` method is a two-phase procedure.
+	/// 1. It counts all occurences of matching substrings. Then report failure if capacity is insufficient.
+	/// 2. Perform `memmove` operation in reverse order to reserve gaps for replacements, then fill in the gaps.
+	/// 
+	/// Note: In order to avoid dynamic allocations, you should pass a slice of UTF-16 string. \
+	/// You may use `StaticWString::from` to craft a string for the sake of minimal stack-allocation.
+	/// 
+	/// **Caveat:** If `from` is an empty slice, then this method would unconditionally return `Ok(())`.
+	/// 
+	/// ## Example
+	/// Here is an example that replaces all LF with CRLF:
+	/// ```
+	/// use static_collections::ffi::wstring::StaticWString;
+	/// use utf16_lit::utf16;
+	/// let mut s:StaticWString<32>=StaticWString::from("Hello\nWorld\n");
+	/// s.replace(&[b'\n' as u16],&[b'\r' as u16,b'\n' as u16]).unwrap();
+	/// assert_eq!(s.as_slice(),utf16!("Hello\r\nWorld\r\n"));
+	/// ```
+	/// Here is an example that replaces all CRLF with LF:
+	/// ```
+	/// use static_collections::ffi::wstring::StaticWString;
+	/// use utf16_lit::utf16;
+	/// let mut s:StaticWString<32>=StaticWString::from("Hello\r\nWorld\r\n");
+	/// s.replace(&utf16!("\r\n"),&utf16!("\n")).unwrap();
+	/// assert_eq!(s.as_slice(),utf16!("Hello\nWorld\n"));
+	/// ```
+	/// Here is an example that replaces all CR with LF:
+	/// ```
+	/// use static_collections::ffi::wstring::StaticWString;
+	/// use utf16_lit::utf16;
+	/// let mut s:StaticWString<32>=StaticWString::from("Hello\rWorld\r");
+	/// s.replace(&utf16!("\r"),&utf16!("\n")).unwrap();
+	/// assert_eq!(s.as_slice(),utf16!("Hello\nWorld\n"));
+	/// ```
+	pub fn replace(&mut self,from:&[u16],to:&[u16])->Result<(),InsertError>
+	{
+		// Caveat check.
+		if from.is_empty()
+		{
+			return Ok(());
+		}
+
+		// For the special cases where `from` and `to` has equal length, skip the length check.
+		if from.len()==to.len()
+		{
+			let mut i=0;
+			while i+from.len()<=self.len()
+			{
+				if &self[i..i+from.len()]==from
+				{
+					self[i..i+to.len()].copy_from_slice(to);
+					i+=from.len();
+				}
+				else
+				{
+					i+=1;
+				}
+			}
+			return Ok(());
+		}
+
+		// Count the matching substrings.
+		let mut matches:usize=0;
+		let mut i:usize=0;
+		let src=self.as_slice();
+		while i+from.len()<=src.len()
+		{
+			if &src[i..i+from.len()]==from
+			{
+				matches+=1;
+				i+=from.len();
+			}
+			else
+			{
+				i+=1;
+			}
+		}
+
+		// Predict the new length and report failure if needed.
+		let old_len=self.len();
+		let new_len = if to.len()>=from.len()
+		{
+			old_len+matches*(to.len()-from.len())
+		}
+		else
+		{
+			old_len-matches*(from.len()-to.len())
+		};
+		if new_len>self.capacity()
+		{
+			return Err(InsertError::InsufficientSpace);
+		}
+
+		// If the replacement string is smaller, resize should be done after replacment.
+		if to.len()<from.len()
+		{
+			let mut read=0;
+			let mut write=0;
+			while read<old_len
+			{
+				if read+from.len()<=old_len && &self[read..read+from.len()]==from
+				{
+					for &value in to
+					{
+						self[write]=value;
+						write+=1;
+					}
+					read+=from.len();
+				}
+				else
+				{
+					self[write]=self[read];
+					read+=1;
+					write+=1;
+				}
+			}
+			unsafe
+			{
+				self.internal.force_resize(new_len);
+			}
+			return Ok(());
+		}
+
+		// If the replacement string is bigger, resize should be done before replacement.
+		unsafe
+		{
+			self.internal.force_resize(new_len);
+		}
+		let mut read=old_len;
+		let mut write=new_len;
+		while read>0
+		{
+			if read>=from.len() && &self[read-from.len()..read]==from
+			{
+				read-=from.len();
+				write-=to.len();
+				self[write..write+to.len()].copy_from_slice(to);
+			}
+			else
+			{
+				read-=1;
+				write-=1;
+				self[write]=self[read];
+			}
 		}
 		Ok(())
 	}
