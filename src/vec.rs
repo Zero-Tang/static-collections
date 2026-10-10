@@ -239,14 +239,16 @@ impl<const N:usize,T> StaticVec<N,T>
 	/// ```
 	pub fn truncate(&mut self,new_len:usize)
 	{
-		if new_len<self.length
+		// Shrink the live range *before* destroying each element. If `T::drop`
+		// panics, `self.length` has already been lowered past the destroyed
+		// slot, so `Drop for StaticVec` (which calls `clear`) cannot destroy
+		// that slot a second time.
+		while new_len<self.length
 		{
-			// Force drop every item.
-			for item in &mut self[new_len..]
-			{
-				drop(unsafe{ptr::read(item)});
-			}
-			self.length=new_len;
+			self.length-=1;
+			let idx=self.length;
+			let p=self.as_mut_ptr();
+			unsafe{ptr::drop_in_place(p.add(idx))};
 		}
 	}
 
@@ -263,12 +265,7 @@ impl<const N:usize,T> StaticVec<N,T>
 	/// ```
 	pub fn clear(&mut self)
 	{
-		for item in self.as_mut_slice()
-		{
-			// Force drop every item.
-			drop(unsafe{ptr::read(item)});
-		}
-		self.length=0;
+		self.truncate(0);
 	}
 
 	/// Checks if the static-vector is empty.
@@ -492,5 +489,61 @@ impl<const N:usize,T> DerefMut for StaticVec<N,T>
 			assert_eq!(drop_count.load(Ordering::SeqCst),4);
 		}
 		assert_eq!(drop_count.load(Ordering::SeqCst),7);
+	}
+
+	/// A panicking `Drop` must not leave a destroyed slot inside `0..length`.
+	///
+	/// `clear`/`truncate` used to destroy elements first and lower `length`
+	/// afterwards. When `T::drop` panicked the assignment was skipped, so
+	/// `Drop for StaticVec` destroyed the same slot a second time.
+	#[test] fn panicking_drop_does_not_double_free()
+	{
+		use core::sync::atomic::{AtomicUsize,AtomicBool,Ordering};
+		use std::panic::{catch_unwind,AssertUnwindSafe};
+
+		static DROPS:AtomicUsize=AtomicUsize::new(0);
+		static ARMED:AtomicBool=AtomicBool::new(false);
+
+		struct Boom;
+
+		impl Drop for Boom
+		{
+			fn drop(&mut self)
+			{
+				DROPS.fetch_add(1,Ordering::SeqCst);
+				if ARMED.swap(false,Ordering::SeqCst)
+				{
+					panic!("element Drop panics");
+				}
+			}
+		}
+
+		// -- clear --
+		DROPS.store(0,Ordering::SeqCst);
+		{
+			let mut v:StaticVec<8,Boom>=StaticVec::new();
+			for _ in 0..3 { let _=v.push(Boom); }
+
+			ARMED.store(true,Ordering::SeqCst);
+			let r=catch_unwind(AssertUnwindSafe(||v.clear()));
+			assert!(r.is_err(),"the armed Drop should have panicked");
+			// The destroyed slot must already be outside the live range.
+			assert_eq!(v.len(),2,"clear: length must be lowered before the drop");
+		}
+		// Three elements, each destroyed exactly once.
+		assert_eq!(DROPS.load(Ordering::SeqCst),3,"clear: an element was dropped twice");
+
+		// -- truncate --
+		DROPS.store(0,Ordering::SeqCst);
+		{
+			let mut v:StaticVec<8,Boom>=StaticVec::new();
+			for _ in 0..3 { let _=v.push(Boom); }
+
+			ARMED.store(true,Ordering::SeqCst);
+			let r=catch_unwind(AssertUnwindSafe(||v.truncate(1)));
+			assert!(r.is_err(),"the armed Drop should have panicked");
+			assert_eq!(v.len(),2,"truncate: length must be lowered before the drop");
+		}
+		assert_eq!(DROPS.load(Ordering::SeqCst),3,"truncate: an element was dropped twice");
 	}
 }
