@@ -395,14 +395,18 @@ impl<const N:usize,T> DerefMut for StaticVec<N,T>
 	(
 		{
 			let mut v=StaticVec::new();
+			let mut i:usize=0;
+			while i<$len
+			{
+				let x=$elem;
+				unsafe
+				{
+					v.force_assign(i,x);
+				}
+				i+=1;
+			}
 			unsafe
 			{
-				let mut i:usize=0;
-				while i<$len
-				{
-					v.force_assign(i,$elem);
-					i+=1;
-				}
 				v.force_resize($len);
 			}
 			v
@@ -413,14 +417,16 @@ impl<const N:usize,T> DerefMut for StaticVec<N,T>
 		{
 			let mut v=StaticVec::new();
 			let mut index:usize=0;
+			$(
+				let y=$x;
+				unsafe
+				{
+					v.force_assign(index,y);
+				}
+				index+=1;
+			)*
 			unsafe
 			{
-				$(
-					{
-						v.force_assign(index,$x);
-						index+=1;
-					}
-				)*
 				v.force_resize(index);
 			}
 			v
