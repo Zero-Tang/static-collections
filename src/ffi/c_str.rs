@@ -1,28 +1,28 @@
 // C-String
 
-use core::{cmp::Ordering, ffi::{CStr, FromBytesWithNulError}, fmt, mem::MaybeUninit, ops::AddAssign, slice};
+use core::{cmp::Ordering, ffi::{CStr, FromBytesWithNulError, c_char}, fmt, mem::MaybeUninit, ops::AddAssign, slice};
 
 // Usually, CRT routines are seriously optimized by target vendor.
 // However, it depends on target vendor's implementation, and the target vendor may not even provide CRT at all.
 #[cfg(feature = "use_crt")]
 unsafe extern "C"
 {
-	fn strncmp(s1:*const i8,s2:*const i8,cch:usize)->isize;
-	fn strncpy(dest:*mut i8,src:*const i8,cch:usize)->*mut i8;
-	pub(crate) fn strnlen(str:*const i8,cch:usize)->usize;
+	fn strncmp(s1:*const c_char,s2:*const c_char,cch:usize)->isize;
+	fn strncpy(dest:*mut c_char,src:*const c_char,cch:usize)->*mut c_char;
+	pub(crate) fn strnlen(str:*const c_char,cch:usize)->usize;
 }
 
 // If usage of CRT is disabled, implement CRT on our own.
 
 #[cfg(not(feature = "use_crt"))]
-#[unsafe(no_mangle)] pub(crate) unsafe extern "C" fn strnlen(str:*const i8,cch:usize)->usize
+#[unsafe(no_mangle)] pub(crate) unsafe extern "C" fn strnlen(str:*const c_char,cch:usize)->usize
 {
 	let s=unsafe{slice::from_raw_parts(str,cch)};
 	s.iter().position(|&v| v==0).unwrap_or(cch)
 }
 
 #[cfg(not(feature = "use_crt"))]
-#[unsafe(no_mangle)] unsafe extern "C" fn strncpy(dest:*mut i8,src:*const i8,cch:usize)->*mut i8
+#[unsafe(no_mangle)] unsafe extern "C" fn strncpy(dest:*mut c_char,src:*const c_char,cch:usize)->*mut c_char
 {
 	let s1=unsafe{slice::from_raw_parts_mut(dest,cch)};
 	let s2=unsafe{slice::from_raw_parts(src,cch)};
@@ -38,7 +38,7 @@ unsafe extern "C"
 }
 
 #[cfg(not(feature = "use_crt"))]
-#[unsafe(no_mangle)] unsafe extern "C" fn strncmp(str1:*const i8,str2:*const i8,cch:usize)->isize
+#[unsafe(no_mangle)] unsafe extern "C" fn strncmp(str1:*const c_char,str2:*const c_char,cch:usize)->isize
 {
 	let s1=unsafe{slice::from_raw_parts(str1,cch)};
 	let s2=unsafe{slice::from_raw_parts(str2,cch)};
@@ -59,7 +59,7 @@ unsafe extern "C"
 #[derive(Clone)]
 pub struct StaticCString<const N:usize>
 {
-	buffer:MaybeUninit<[i8;N]>
+	buffer:MaybeUninit<[c_char;N]>
 }
 
 impl<const N:usize> StaticCString<N>
@@ -123,7 +123,7 @@ impl<const N:usize> StaticCString<N>
 	/// Returns the immutable pointer to the first character.
 	/// 
 	/// The returned pointer can be passed to C-FFI routines that accepts raw pointers.
-	#[inline(always)] pub const fn as_ptr(&self)->*const i8
+	#[inline(always)] pub const fn as_ptr(&self)->*const c_char
 	{
 		unsafe
 		{
@@ -134,7 +134,7 @@ impl<const N:usize> StaticCString<N>
 	/// Returns the mutable pointer to the first character.
 	/// 
 	/// The returned pointer can be passed to C-FFI routines that accepts raw pointers.
-	#[inline(always)] pub const fn as_mut_ptr(&mut self)->*mut i8
+	#[inline(always)] pub const fn as_mut_ptr(&mut self)->*mut c_char
 	{
 		unsafe
 		{
@@ -215,7 +215,7 @@ impl<'a,const N:usize> StaticCString<N>
 	/// # Panic
 	/// The `strnlen` will be called by this function. It may trigger an exception. \
 	/// The program may either panic, crash, or run normally if the exception is handled.
-	#[inline(always)] pub unsafe fn from_raw_ptr(ptr:*const i8)->Result<&'a Self,FromBytesWithNulError>
+	#[inline(always)] pub unsafe fn from_raw_ptr(ptr:*const c_char)->Result<&'a Self,FromBytesWithNulError>
 	{
 		let r:&Self=unsafe{&*ptr.cast()};
 		if r.len()>=N
@@ -239,7 +239,7 @@ impl<'a,const N:usize> StaticCString<N>
 	/// # Panic
 	/// The `strnlen` will be called by this function. It may trigger an exception. \
 	/// The program may either panic, crash, or run normally if the exception is handled.
-	#[inline(always)] pub unsafe fn from_raw_mut_ptr(ptr:*mut i8)->Result<&'a mut Self,FromBytesWithNulError>
+	#[inline(always)] pub unsafe fn from_raw_mut_ptr(ptr:*mut c_char)->Result<&'a mut Self,FromBytesWithNulError>
 	{
 		let r:&mut Self=unsafe{&mut *ptr.cast()};
 		if r.len()>=N
